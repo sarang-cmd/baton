@@ -5,6 +5,11 @@ already existed, because the brief says the auto-continue path must not change s
 
 ## Changed
 
+**No polling, and a permission that is now only read.** 1.5.0 removed every request Baton made.
+`webRequest` is still declared, because the evaluation message ids only exist in a request body the
+page sent and no API exposes them; it observes traffic rather than causing it. If you would rather not
+grant it, evaluation modes stay silent and chat modes work unchanged.
+
 **`manifest.json` permissions.** Was `storage`, `activeTab`, plus `notifications` as optional. Now
 `storage`, `activeTab`, `notifications`, `webRequest`. Two reasons:
 

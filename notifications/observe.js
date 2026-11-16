@@ -1,9 +1,14 @@
 /**
  * Page observer
  * ------------------------------------------------------------------
- * The only place that talks to Arena. It polls the same state endpoint the page
- * itself polls, and hands raw snapshots to the pure event layer. It never reads
- * the answer stream, so it cannot see or log answer text.
+ * Reads what the page already receives, and nothing else. It issues no requests
+ * of its own: notifications/tap.js, running in the page's own context, hands it
+ * a structural summary of every /api/chat and /api/evaluation response the page
+ * fetches for its own reasons. Summaries carry roles, part types, part states,
+ * flags and text lengths, never text.
+ *
+ * Polling was removed in 1.5.0. Fetching /api/chat every second from every open
+ * tab is what got accounts rate limited for hours.
  *
  * Runs in the content script. Everything it learns goes to the background worker
  * as one message, which is where dedupe and notifications live.
@@ -17,12 +22,12 @@
 (() => {
   const root = typeof self !== 'undefined' ? self : globalThis;
   const Events = root.BatonEvents;
-  const POLL_MS = 2500;
-  const POLL_BUSY_MS = 1000;   // a run is in flight: watch it closely
-  const POLL_HIDDEN_MS = 15000;
   // an unmarked shape has to look the same for this long before it counts as
   // finished, so a slow token does not notify mid-answer
   const SETTLE_MS = 6000;
+  // the DOM is checked on a timer, which costs nothing: it reads the page, and
+  // an observer callback only runs when the page actually changes
+  const DOM_TICK_MS = 1500;
   const DIAG_MIN_MS = 2000;
 
   let timer = null;
@@ -42,7 +47,6 @@
   let lastDiagSent = 0;
   const HISTORY = 12;
   let history = [];
-  let lastBusy = false;
 
   const MODE_BY_SEGMENT = { agent: 'agent', code: 'coding', c: 'agent', chat: 'agent' };
   const UUID = /^[0-9a-f]{8,}(-[0-9a-f]{4,})*$/i;
@@ -148,145 +152,96 @@
     }).join(';');
   }
 
-  async function fetchState(id) {
-    const attempts = [
-      '/api/chat/' + encodeURIComponent(id) + '?includeStreamToken=false&recoverRun=false',
-      '/api/chat/' + encodeURIComponent(id)
-    ];
-    for (const url of attempts) {
-      const shown = url.split('?')[0];
-      try {
-        const res = await fetch(url, {
-          credentials: 'same-origin',
-          headers: { accept: 'application/json' }
-        });
-        if (res.ok) {
-          const body = await res.json();
-          if (diag) diag.poll = { endpoint: shown, status: res.status, ok: true };
-          return body;
-        }
-        if (diag) diag.poll = { endpoint: shown, status: res.status, ok: false };
-        // 401 or 403 will not improve by trying the other spelling
-        if (res.status === 401 || res.status === 403 || res.status === 404) {
-          if (res.status === 401 || res.status === 403) return null;
-        }
-      } catch (err) {
-        if (diag) {
-          diag.poll = {
-            endpoint: shown, status: 0, ok: false,
-            error: String((err && err.message) || err).slice(0, 80)
-          };
-        }
-        return null; // offline: the next tick will try again
-      }
-    }
-    return null;
-  }
-
-  async function pollOnce() {
-    if (inFlight) return;
+  /**
+   * One summary in from the tap. This replaces the whole polling loop: the page
+   * already asked Arena for this, so the answer is already on its way.
+   */
+  function noteSummary(summary, kind) {
+    if (!summary) return;
     const route = readRoute();
-
-    if (!route.chatId) {
-      chatId = null;
-      previous = null;
-      history = [];
-      diag = {
-        at: Date.now(), page: location.pathname.slice(0, 80), route: { chatId: null, mode: null, from: null },
-        poll: null, decision: null, events: []
-      };
-      reportDiag(true);
+    if (kind === 'evaluation') {
+      noteEvaluation(summary);
       return;
     }
+    if (route.chatId && summary.id && String(summary.id).indexOf(String(route.chatId).slice(0, 8)) === -1 &&
+        summary.id !== route.chatId) {
+      // a summary for a different thread, for example one the page prefetched
+      return;
+    }
+    if (!route.chatId) return;
 
-    // a new thread in the same tab starts a fresh baseline
     if (route.chatId !== chatId) {
       chatId = route.chatId;
       mode = route.mode;
       previous = null;
-      stoppedIds = new Set();
+      history = [];
       fingerprint = null;
       unchangedSince = 0;
       diag = null;
     }
 
-    diag = diag || { at: Date.now(), events: [] };
-    diag.at = Date.now();
+    receive(summary, route.from);
+  }
+
+  /** Feed one structural summary through the event layer. */
+  function receive(summary, from) {
+    if (!Events) return;
+    const now = Date.now();
+    diag = diag || { at: now, events: [] };
+    diag.at = now;
     diag.page = location.pathname.slice(0, 80);
-    diag.route = { chatId: chatId.slice(0, 8), mode, from: route.from };
+    diag.route = { chatId: chatId ? chatId.slice(0, 8) : null, mode, from, passive: true };
 
-    if (!Events) {
-      diag.decision = { error: 'event layer did not load' };
-      reportDiag(true);
-      return;
+    const fp = fingerprintOf(summary);
+    if (fp !== fingerprint) {
+      fingerprint = fp;
+      unchangedSince = now;
     }
-    if (!Events.isSupported(mode)) {
-      diag.decision = { error: 'mode not supported: ' + String(mode) };
-      reportDiag(true);
-      return;
-    }
+    const settled = unchangedSince > 0 && now - unchangedSince >= SETTLE_MS;
 
-    inFlight = true;
+    const events = Events.fromChatState(previous, summary, { mode, stoppedIds, settled });
+    const doneEvent = events.find((e) => e.type === 'response_done');
+
+    diag.messages = (summary.messages || []).length;
+    diag.shape = Events.shapeOf(summary);
+    diag.dom = domActivity();
+    diag.decision = {
+      settled,
+      unchangedMs: unchangedSince ? now - unchangedSince : 0,
+      baseline: previous === null,
+      finished: !!doneEvent,
+      signal: doneEvent ? doneEvent.signal : null,
+      passive: 'no request was made by Baton'
+    };
+
+    const last = (summary.messages || [])[(summary.messages || []).length - 1] || null;
+    const assistants = (summary.messages || []).filter((m) => m && m.role === 'assistant');
+    const tail = assistants.length ? assistants[assistants.length - 1] : null;
+    const tailMeta = (tail && tail.metadata) || {};
+    history.push({
+      t: new Date(now).toLocaleTimeString(),
+      n: (summary.messages || []).length,
+      lastRole: last ? last.role : null,
+      assistant: tail ? 1 : 0,
+      pending: tail ? (tailMeta.pending === undefined ? 'absent' : !!tailMeta.pending) : null,
+      parts: tail ? (tail.parts || []).length : 0,
+      settled,
+      out: events.map((e) => e.type)
+    });
+    if (history.length > HISTORY) history.shift();
+    diag.history = history.slice();
+
+    previous = summary;
+    emit(events);
+    reportDiag(false);
+  }
+
+  /** An evaluation status the page fetched for itself. */
+  function noteEvaluation(update) {
     try {
-      const state = await fetchState(chatId);
-      if (!state) {
-        diag.decision = { error: 'no chat state', poll: diag.poll };
-        reportDiag(true);
-        return;
-      }
-
-      const fp = fingerprintOf(state);
-      const now = Date.now();
-      if (fp !== fingerprint) {
-        fingerprint = fp;
-        unchangedSince = now;
-      }
-      const settled = unchangedSince > 0 && now - unchangedSince >= SETTLE_MS;
-
-      const events = Events.fromChatState(previous, state, { mode, stoppedIds, settled });
-      const doneEvent = events.find((e) => e.type === 'response_done');
-      diag.messages = ((state && state.messages) || []).length;
-      diag.shape = Events.shapeOf(state);
-      diag.dom = domActivity();
-      diag.decision = {
-        settled,
-        unchangedMs: unchangedSince ? now - unchangedSince : 0,
-        baseline: previous === null,
-        finished: !!doneEvent,
-        signal: doneEvent ? doneEvent.signal : null
-      };
-      if (!diag.events || !diag.events.length) diag.events = [];
-
-      // one line per poll, so a single paste shows the whole trajectory:
-      // does an assistant message ever appear, and does pending ever flip?
-      const last = ((state.messages || [])[((state.messages || []).length - 1)]) || null;
-      const assistants = (state.messages || []).filter((m) => m && m.role === 'assistant');
-      const tail = assistants.length ? assistants[assistants.length - 1] : null;
-      const tailMeta = (tail && tail.metadata) || {};
-      const busy = !!(tail && tailMeta.pending === true) || events.some((e) => e.type === 'question_asked');
-      lastBusy = busy;
-      history.push({
-        t: new Date(now).toLocaleTimeString(),
-        n: (state.messages || []).length,
-        lastRole: last ? last.role : null,
-        assistant: tail ? 1 : 0,
-        pending: tail ? (tailMeta.pending === undefined ? 'absent' : !!tailMeta.pending) : null,
-        parts: tail ? (tail.parts || []).length : 0,
-        settled,
-        out: events.map((e) => e.type)
-      });
-      if (history.length > HISTORY) history.shift();
-      diag.history = history.slice();
-
-      previous = state;
-      emit(events);
-      reportDiag(false);
-    } catch (err) {
-      diag.decision = { error: String((err && err.message) || err).slice(0, 120) };
-      reportDiag(true);
-    } finally {
-      inFlight = false;
-    }
+      chrome.runtime.sendMessage({ type: 'baton-evaluation', update },
+        () => void (chrome.runtime && chrome.runtime.lastError));
+    } catch (_) {}
   }
 
   /** Send the report at most every DIAG_MIN_MS, or immediately when it matters. */
@@ -301,9 +256,8 @@
   }
 
   /**
-   * The last chat-state snapshot, for the content script to turn into a limit
-   * event. Kept here so there is one fetch, not two: the banner detector and the
-   * poller read the same snapshot.
+   * The last structural summary, for the content script to turn into a limit
+   * event. The banner detector and the event layer read the same snapshot.
    */
   function snapshot() {
     return { state: previous, mode };
@@ -315,14 +269,34 @@
     if (stoppedIds.size > 50) stoppedIds = new Set([...stoppedIds].slice(-50));
   }
 
+  /** Messages from the tap. Same window, so check the source as well. */
+  function onTapMessage(event) {
+    if (event.source !== window) return;
+    const data = event.data;
+    if (!data || data.__batonTap !== 1) return;
+    try {
+      if (data.kind === 'chat') noteSummary(data.payload, 'chat');
+      else if (data.kind === 'evaluation') noteSummary(data.payload, 'evaluation');
+    } catch (_) {
+      /* a malformed summary must never break the page */
+    }
+  }
+
+  /**
+   * Start observing. This installs a message listener and a DOM timer, and
+   * makes no network request of any kind.
+   */
   function start() {
     if (timer) return;
+    window.addEventListener('message', onTapMessage);
     const tick = () => {
-      pollOnce();
-      const wait = document.visibilityState === 'hidden'
-        ? POLL_HIDDEN_MS
-        : (lastBusy ? POLL_BUSY_MS : POLL_MS);
-      timer = setTimeout(tick, wait);
+      // the DOM half: a Stop control on the page means a run is live, which is
+      // the only thing that can tell an unmarked summary that it is not settled
+      const activity = domActivity();
+      const active = activity.stopControls > 0 || activity.streamingMarks > 0;
+      if (active) unchangedSince = Date.now();
+      if (diag) diag.dom = activity;
+      timer = setTimeout(tick, DOM_TICK_MS);
     };
     tick();
   }
@@ -330,10 +304,19 @@
   function stop() {
     if (timer) clearTimeout(timer);
     timer = null;
+    window.removeEventListener('message', onTapMessage);
     previous = null;
   }
 
-  /** The turn the limit banner belongs to, as far as the last poll knows. */
+  /**
+   * Kept so callers and tests do not break. It performs no request: polling was
+   * removed in 1.5.0 because it rate limited accounts.
+   */
+  function pollOnce() {
+    return { skipped: 'passive', reason: 'Baton reads the page traffic, it does not poll' };
+  }
+
+  /** The turn the limit banner belongs to, as far as the last summary knows. */
   function currentTurn() {
     if (!Events || !previous) return null;
     const events = Events.fromLimit(previous, { mode });
@@ -342,6 +325,8 @@
 
   root.BatonObserve = {
     start, stop, snapshot, noteStopped, pollOnce, currentTurn, readRoute,
+    // exposed for the tests, and for a page that hands over a summary directly
+    noteSummary, receive,
     debug: () => lastEventDebug.slice(),
     diag: () => diag
   };

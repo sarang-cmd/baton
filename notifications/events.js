@@ -111,11 +111,18 @@
     return { busy: null, signal: 'no busy or done marker' };
   }
 
-  /** Does this message carry answer text, as opposed to only steps? */
+  /**
+   * Does this message carry answer text, as opposed to only steps?
+   *
+   * Reads either the text itself or, for a summary from the tap, only its
+   * length. The tap measures text and drops it, so the extension never holds
+   * the answer, and this is the one place both shapes have to agree.
+   */
   function hasAnswerText(message) {
     for (const part of (message && message.parts) || []) {
       if (part.type !== 'text') continue;
       if (typeof part.text === 'string' && part.text.trim().length > 0) return true;
+      if (typeof part.textLength === 'number' && part.textLength > 0) return true;
     }
     if (typeof message.content === 'string' && message.content.trim().length > 0) return true;
     return false;

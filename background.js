@@ -95,6 +95,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     return true;
   }
 
+  if (msg.type === 'baton-evaluation') {
+    const worker = self.BatonWorker;
+    if (worker && worker.noteEvaluation) worker.noteEvaluation(msg.update);
+    reply({ ok: !!worker });
+    return true;
+  }
+
   if (msg.type === 'baton-diag') {
     const worker = self.BatonWorker;
     if (worker && worker.noteDiag) worker.noteDiag(msg.diag);

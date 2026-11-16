@@ -6,11 +6,12 @@
  *   1. intake   every event, from any tab, funnelled through one dedupe
  *   2. the evaluation family (Direct, Battle, Side by side), whose message ids
  *      are only visible in the create-evaluation request, so they are learned
- *      with chrome.webRequest and then polled for their status
+ *      with chrome.webRequest and then matched against what the page itself
+ *      fetched, with no polling of Baton's own
  *   3. manual stops, which only exist as a request to /nextjs-api/stream/stop
  *
- * No new network destination: the polls are same-origin Arena endpoints, and
- * nothing is sent anywhere else.
+ * No request of any kind: 1.5.0 removed every poll, because polling Arena from
+ * every tab was enough to get an account rate limited for hours.
  */
 (() => {
   // The same four files are loaded twice: into a page as content scripts, and
@@ -180,69 +181,33 @@
         title: null,
         createdAt: Date.now()
       });
-      resolveTitle(body.id);
-      pollEvaluation(body.id);
+      // The ids are recorded; the page's own evaluation fetches drive the rest,
+      // and the title comes from the tab. Nothing is requested here.
     }
   }
 
-  /** The history endpoint is the only place a thread title appears. */
-  function resolveTitle(turnId) {
-    const entry = watching.get(turnId);
-    if (!entry) return;
-    fetch('/api/history/unified?limit=20&includeArchived=false', { credentials: 'same-origin' })
-      .catch(() => null)
-      .then((res) => (res && res.ok ? res.json() : null))
-      .then((json) => {
-        if (!json || !Array.isArray(json.entries)) return;
-        const hit = json.entries.find((e) => e.id === turnId);
-        if (hit && hit.title) entry.title = hit.title;
-      })
-      .catch(() => {});
-  }
-
-  function evaluationUrl(entry) {
-    const modality = entry.request.modality || 'webdev';
-    return modelKey => '/api/evaluation/' + encodeURIComponent(modality) + '/' +
-      encodeURIComponent(modelIdOf(entry.request, modelKey));
-  }
-
-  const modelIdOf = (request, key) =>
-    key === 'a' ? request.modelAMessageId : request.modelBMessageId;
-
-  async function pollEvaluation(turnId) {
-    const entry = watching.get(turnId);
-    if (!entry) return;
-    const models = ['a', 'b'].filter((k) => modelIdOf(entry.request, k));
-    const deadline = Date.now() + 10 * 60 * 1000;
-
-    const tick = async () => {
-      const live = watching.get(turnId);
-      if (!live) return;
-      for (const key of models) {
-        if (live.statuses[key] === 'ready') continue;
-        try {
-          const url = evaluationUrl(live)(key);
-          const res = await fetch(url, { credentials: 'same-origin' });
-          if (!res.ok) continue;
-          const json = await res.json();
-          if (json && json.status) live.statuses[key] = json.status;
-        } catch (_) {}
+  /**
+   * An evaluation status the page fetched for itself, handed over by the tap.
+   * The worker used to poll this endpoint every 2.5 seconds for up to ten
+   * minutes per turn, which is the sort of traffic that gets an account flagged.
+   * Nothing here makes a request.
+   */
+  function noteEvaluation(update) {
+    if (!update || !update.messageId || !update.status) return;
+    for (const [turnId, entry] of watching) {
+      const key = ['a', 'b'].find((k) => modelIdOf(entry.request, k) === update.messageId);
+      if (!key) continue;
+      entry.statuses[key] = update.status;
+      const events = Events.fromEvaluation(entry.request, entry.statuses, entry.seen, {});
+      for (const event of events) {
+        entry.seen[event.model] = 'ready';
+        intake(event, { threadTitle: entry.title, url: threadUrlFor(entry.request) });
       }
-      const events = Events.fromEvaluation(live.request, live.statuses, live.seen, {});
-      for (const event of events) live.seen[event.model] = 'ready';
-      if (events.length) {
-        for (const event of events) {
-          intake(event, { threadTitle: live.title, url: threadUrlFor(live.request) });
-        }
-      }
-      const done = models.every((k) => live.statuses[k] === 'ready');
-      if (done || Date.now() > deadline) {
+      if (['a', 'b'].every((k) => !modelIdOf(entry.request, k) || entry.statuses[k] === 'ready')) {
         watching.delete(turnId);
-        return;
       }
-      setTimeout(tick, 2500);
-    };
-    tick();
+      return;
+    }
   }
 
   function threadUrlFor(request) {
@@ -343,7 +308,8 @@
   }
 
   const api = { intake, installWebRequest, focusThread, targets, watching, stoppedByChat,
-                noteLimitOutcome, noteTitle, limitOutcome, threadTitles, noteDiag, testEvent };
+                noteLimitOutcome, noteTitle, limitOutcome, threadTitles, noteDiag, testEvent,
+                noteEvaluation };
   root.BatonWorker = api;
 
   // the evaluation intake is an extra: if Chrome refuses the webRequest

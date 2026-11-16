@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.5.0, 7 November 2026
+
+- **Baton no longer makes any request to Arena.** This is the important line. 1.4 polled `/api/chat`
+  every second or two from every open tab, and `/api/evaluation` every 2.5 seconds for up to ten
+  minutes per turn. That is the traffic pattern of a scraper, and it was enough to get an account
+  flagged as a bot and locked out of its own chats for hours.
+- Instead, `notifications/tap.js` runs in the page's own JavaScript context, wraps `fetch` and
+  `XMLHttpRequest`, and reads responses the page has already received for its own reasons. The page
+  fetches the chat transcript and the evaluation status anyway; Baton just reads the copy. Zero
+  requests added, and a test asserts the tap never calls `fetch` itself.
+- The tap measures answer text and drops it. What crosses into the extension is a summary: roles, part
+  types, part states, the `pending` and `finishReason` flags, and text lengths. A test fails if a
+  prompt or an answer appears in anything the tap posts.
+- Thread titles for evaluation turns now come from the tab instead of a `/api/history/unified` call.
+- The Diagnostics report says so directly: "Baton made no request: it read the page and nothing else."
+- A source-level test fails the build if a `fetch`, an `XMLHttpRequest` or a polling interval ever
+  reappears in the observer or the worker.
+- Testing: 48 in the three node suites, including seven for the tap, plus the 39 page tests.
+
 ## 1.4.1, 7 November 2026
 
 - The Diagnostics report now shows the last twelve polls as a trajectory: message count, the role of

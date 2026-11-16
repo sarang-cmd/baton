@@ -341,3 +341,56 @@ test('the structural summary carries no text and no ids', () => {
   assert.deepEqual(shape.assistant.partStates, ['done']);
   assert.deepEqual(shape.assistant.metadataKeys, ['model', 'pending']);
 });
+
+/* ------------------------------------------------------------- tap summaries
+ * The tap sends structural summaries: text is replaced by its length so the
+ * extension never holds an answer. Detection has to work on that shape too, or
+ * passive mode would never fire.
+ */
+
+const summaryOf = (messages) => ({
+  id: 'chat-1',
+  messages: messages.map((m) => ({
+    id: m.id, role: m.role, metadata: m.metadata || {},
+    parts: (m.parts || []).map((p) => ({ type: p.type, state: p.state || null,
+      textLength: p.textLength === undefined ? 0 : p.textLength }))
+  }))
+});
+
+test('a summary without text but with a text length still counts as an answer', () => {
+  const before = summaryOf([{ id: 'm1', role: 'user', parts: [{ type: 'text', textLength: 12 }] }]);
+  const after = summaryOf([
+    { id: 'm1', role: 'user', parts: [{ type: 'text', textLength: 12 }] },
+    { id: 'm2', role: 'assistant', metadata: { pending: true },
+      parts: [{ type: 'step-start' }, { type: 'text', state: 'streaming', textLength: 40 }] }
+  ]);
+  assert.deepEqual(Events.fromChatState(before, after, { mode: 'agent' }).map((e) => e.type), [],
+    'a summary that is still streaming must not notify');
+
+  const done = summaryOf([
+    { id: 'm1', role: 'user', parts: [{ type: 'text', textLength: 12 }] },
+    { id: 'm2', role: 'assistant', metadata: { pending: false },
+      parts: [{ type: 'step-start' }, { type: 'text', state: 'done', textLength: 88 }] }
+  ]);
+  const events = Events.fromChatState(after, done, { mode: 'agent' });
+  assert.deepEqual(events.map((e) => e.type), ['response_done']);
+  assert.match(events[0].signal, /pending false/);
+});
+
+test('a summary with no text length is a step, not an answer', () => {
+  const step = { id: 'm2', role: 'assistant', metadata: { pending: false },
+    parts: [{ type: 'reasoning', state: 'done', textLength: 0 },
+            { type: 'tool-web_search', state: 'output-available', textLength: 0 }] };
+  assert.equal(Events.isFinished(step, { settled: true }), false);
+});
+
+test('a tool question survives the summary shape', () => {
+  const before = summaryOf([{ id: 'm1', role: 'user', parts: [{ type: 'text', textLength: 5 }] }]);
+  const after = summaryOf([
+    { id: 'm1', role: 'user', parts: [{ type: 'text', textLength: 5 }] },
+    { id: 'm2', role: 'assistant', metadata: { pending: true },
+      parts: [{ type: 'tool-ask_user', state: 'input-available' }] }
+  ]);
+  const events = Events.fromChatState(before, after, { mode: 'agent' });
+  assert.deepEqual(events.map((e) => e.type), ['question_asked']);
+});

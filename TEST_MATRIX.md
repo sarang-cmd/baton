@@ -41,6 +41,17 @@ Setup:
 | 16 | any | permission state | Disable the extension's notification permission, reopen options | The Notifications note reads "Notifications are blocked for this extension" | `refreshNotify` did not run |
 | 17 | any | search | Type `question` in the options search box | Only the matching notification toggle stays visible | Row filtering regressed |
 
+## Passive rows
+
+Baton is not allowed to generate traffic. These rows check that, and they matter more than the rest.
+
+| # | Steps | Expected | If it fails |
+| --- | --- | --- | --- |
+| P1 | Open a thread, open devtools Network, filter to `api/chat`, leave the tab alone for a minute | No new `/api/chat` requests appear on an idle thread | Baton is polling: report it, this is the bug that caused the lockout |
+| P2 | Send a prompt and watch Network while the answer streams | Every `/api/chat` request has an initiator in the page's own bundle, not in the extension | Same |
+| P3 | Run an evaluation turn (Direct or Side by side) and watch `/api/evaluation` | Only the page's own fetches, no repeating poll on a fixed interval | The evaluation poll came back |
+| P4 | Chrome, `chrome://extensions`, service worker console | No request failures from Baton, no repeated timers | Something else is calling out |
+
 ## Diagnostics rows
 
 Run these first. They say which half of the feature is failing, which is the difference between a
