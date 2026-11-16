@@ -37,16 +37,27 @@
   let settings = null;
   function currentSettings(cb) {
     if (settings) { cb(settings); return; }
+    // a storage read that never answers must not swallow the caller's reply
+    let answered = false;
+    const once = (value) => {
+      if (answered) return;
+      answered = true;
+      try { cb(value); } catch (_) {}
+    };
+    const watchdog = setTimeout(() => once({}), 1500);
     try {
       chrome.storage.local.get(['settings'], (res) => {
+        void (chrome.runtime && chrome.runtime.lastError);
+        clearTimeout(watchdog);
         settings = (res && res.settings) || {};
-        cb(settings);
+        once(settings);
       });
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local' && changes.settings) settings = changes.settings.newValue || {};
       });
     } catch (_) {
-      cb({});
+      clearTimeout(watchdog);
+      once({});
     }
   }
 
@@ -66,6 +77,24 @@
    * user opted in).
    */
   function intake(event, context, cb) {
+    // one answer per event, whatever happens below
+    let answered = false;
+    const finish = (value) => {
+      if (answered) return;
+      answered = true;
+      if (cb) cb(value);
+    };
+    const safe = (fn) => {
+      try { fn(); } catch (err) {
+        lastIntake = { at: Date.now(), type: event && event.type, stage: 'intake-threw',
+          error: String((err && err.message) || err).slice(0, 120) };
+        finish(false);
+      }
+    };
+    safe(() => intakeInner(event, context, finish));
+  }
+
+  function intakeInner(event, context, cb) {
     if (!event || !Dedupe || !Notifier) {
       lastIntake = { at: Date.now(), type: event && event.type, stage: 'modules-missing' };
       if (cb) cb(false); return;

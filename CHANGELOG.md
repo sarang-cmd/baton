@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.5.1, 7 November 2026
+
+- Fixes the console error `A listener indicated an asynchronous response by returning true, but the
+  message channel closed before a response was received`. The `baton-event` handler promised a reply
+  and answered only if every event finished its intake, so one stalled notification left the caller
+  waiting forever. That is a dropped notification that leaves no trace anywhere.
+- Every asynchronous branch now answers exactly once: a `once()` guard in `background.js`, and a six
+  second watchdog that answers on behalf of work that never calls back.
+- `intake` and the settings read in `worker.js` have their own guards, so a storage callback that never
+  fires, or a notifier that throws, still answers the caller and is recorded in Diagnostics.
+- Three tests, including one that installs an intake which never calls back and asserts a reply still
+  arrives. Writing them caught a second bug of my own: a rewrite had turned the internal `reply` call
+  into `done(payload)` inside `once`, where `done` does not exist, and a catch block was swallowing the
+  ReferenceError. The watchdog would have been inert in production and the console error would have
+  stayed.
+- 51 node tests and 39 page tests.
+
 ## 1.5.0, 7 November 2026
 
 - **Baton no longer makes any request to Arena.** This is the important line. 1.4 polled `/api/chat`

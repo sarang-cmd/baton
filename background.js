@@ -43,13 +43,46 @@ function activeArenaTab(cb) {
   });
 }
 
+/**
+ * A reply that always happens.
+ *
+ * Returning true from an onMessage listener tells Chrome "an answer is coming".
+ * If the answer never arrives, Chrome logs "the message channel closed before a
+ * response was received" and the caller's callback never runs, which looks
+ * exactly like a notification that was silently dropped. So every asynchronous
+ * branch answers exactly once, and a watchdog answers for it if the work stalls.
+ */
+// overridable so a test can prove the watchdog fires without waiting six seconds
+const REPLY_TIMEOUT_MS = (typeof globalThis !== 'undefined' && globalThis.__batonReplyTimeout) || 6000;
+
+function once(reply, timeoutMs = REPLY_TIMEOUT_MS) {
+  let answered = false;
+  const timer = setTimeout(() => {
+    answer({ ok: false, reason: 'timeout' });
+  }, timeoutMs);
+  function answer(payload) {
+    if (answered) return;
+    answered = true;
+    clearTimeout(timer);
+    try {
+      reply(payload);
+    } catch (_) {
+      /* the caller went away first, which is not an error */
+    }
+  }
+  return answer;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  // handlers below call this, never reply directly, so that no branch can hang
+  const done = once(reply);
   if (!msg || !msg.type) return;
 
   if (msg.type === 'baton-notify') {
     // the content script cannot raise notifications itself, and should not be
     // allowed to raise them without the user having switched this on
     chrome.storage.local.get(['settings'], (res) => {
+      void (chrome.runtime && chrome.runtime.lastError);
       const on = !res || !res.settings || res.settings.notifyOnPause !== false;
       if (on) {
         chrome.notifications.create('', {
@@ -60,7 +93,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
           priority: 1
         }, () => void chrome.runtime.lastError);
       }
-      reply({ ok: on });
+      done({ ok: on });
     });
     return true;
   }
@@ -74,10 +107,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
         message: 'Notifications are working. Real ones name the event, not the answer.',
         priority: 1
       }, () => {
-        reply({ ok: !chrome.runtime.lastError, error: chrome.runtime.lastError && chrome.runtime.lastError.message });
+        done({ ok: !chrome.runtime.lastError, error: chrome.runtime.lastError && chrome.runtime.lastError.message });
       });
     } catch (e) {
-      reply({ ok: false, error: String(e && e.message) });
+      done({ ok: false, error: String(e && e.message) });
     }
     return true;
   }
@@ -85,65 +118,72 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg.type === 'baton-limit-outcome') {
     const worker = self.BatonWorker;
     if (worker && msg.turnId) worker.noteLimitOutcome(msg.threadId, msg.turnId, msg.continued);
-    reply({ ok: !!worker });
+    done({ ok: !!worker });
     return true;
   }
 
   if (msg.type === 'baton-boot') {
     // lets the options page say plainly when the notification stack failed
-    reply({ ok: true, version: chrome.runtime.getManifest().version, error: bootError });
+    done({ ok: true, version: chrome.runtime.getManifest().version, error: bootError });
     return true;
   }
 
   if (msg.type === 'baton-evaluation') {
     const worker = self.BatonWorker;
     if (worker && worker.noteEvaluation) worker.noteEvaluation(msg.update);
-    reply({ ok: !!worker });
+    done({ ok: !!worker });
     return true;
   }
 
   if (msg.type === 'baton-diag') {
     const worker = self.BatonWorker;
     if (worker && worker.noteDiag) worker.noteDiag(msg.diag);
-    reply({ ok: !!worker });
+    done({ ok: !!worker });
     return true;
   }
 
   if (msg.type === 'baton-test-event') {
     const worker = self.BatonWorker;
-    if (!worker) { reply({ ok: false, reason: 'no-worker', error: bootError }); return; }
-    worker.testEvent((ok) => reply({ ok }));
+    if (!worker) { done({ ok: false, reason: 'no-worker', error: bootError }); return; }
+    worker.testEvent((ok) => done({ ok }));
     return true;
   }
 
   if (msg.type === 'baton-event') {
     const events = Array.isArray(msg.events) ? msg.events : [];
     const worker = self.BatonWorker;
-    if (!worker) { reply({ ok: false, reason: 'no-worker', error: bootError }); return; }
+    if (!worker) { done({ ok: false, reason: 'no-worker', error: bootError }); return true; }
     let notified = 0;
     let pending = events.length;
-    if (!pending) { reply({ ok: true, notified: 0 }); return; }
+    if (!pending) { done({ ok: true, notified: 0 }); return true; }
     for (const event of events) {
-      worker.intake(event, msg.context || {}, (yes) => {
-        if (yes) notified += 1;
+      try {
+        worker.intake(event, msg.context || {}, (yes) => {
+          if (yes) notified += 1;
+          pending -= 1;
+          if (pending === 0) done({ ok: true, notified });
+        });
+      } catch (err) {
+        // one bad event must not swallow the reply for the others
         pending -= 1;
-        if (pending === 0) reply({ ok: true, notified });
-      });
+        console.error('Baton: intake threw', String(err && err.message));
+        if (pending === 0) done({ ok: true, notified, error: 'intake-threw' });
+      }
     }
     return true;
   }
 
   if (msg.type === 'baton-open-settings') {
     chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
-    reply({ ok: true });
+    done({ ok: true });
     return true;
   }
 
   if (msg.type === 'baton-pick') {
     activeArenaTab((tab) => {
-      if (!tab) { reply({ ok: false, reason: 'no-arena-tab' }); return; }
+      if (!tab) { done({ ok: false, reason: 'no-arena-tab' }); return; }
       chrome.tabs.sendMessage(tab.id, { type: 'baton-pick' }, (res) => {
-        reply(res && res.ok ? { ok: true } : { ok: false, reason: 'no-content-script' });
+        done(res && res.ok ? { ok: true } : { ok: false, reason: 'no-content-script' });
       });
     });
     return true; // async reply
@@ -151,8 +191,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
 
   if (msg.type === 'baton-reset') {
     activeArenaTab((tab) => {
-      if (!tab) { reply({ ok: false }); return; }
-      chrome.tabs.sendMessage(tab.id, { type: 'baton-reset' }, () => reply({ ok: true }));
+      if (!tab) { done({ ok: false }); return; }
+      chrome.tabs.sendMessage(tab.id, { type: 'baton-reset' }, () => done({ ok: true }));
     });
     return true;
   }
