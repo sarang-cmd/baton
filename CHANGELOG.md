@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.6.0, 7 November 2026
+
+- **Download stats.** `site/stats.html` lists downloads per release from the public releases API,
+  behind a password. The password is held as a SHA-256, never in plain text, the page is noindex, and
+  the page says in as many words that it is a curtain rather than security, because the API is public.
+- **Automatic updates.** `scripts/make-crx.py` packs a signed CRX3 and writes `updates.xml`, and
+  `manifest.json` names that manifest in `update_url`. Chrome still will not self update an unpacked
+  extension, so `site/install-windows.reg` provides the policy that permits the install and the
+  updates on Windows: run once as administrator, then Chrome keeps Baton current on its own.
+- `scripts/make-key.sh` creates the signing key exactly once and refuses to overwrite one, because the
+  key is the extension id.
+- `docs/AUTO_UPDATE.md` covers the pieces, the Windows policy, how to undo it, what happens without it,
+  and the Chrome Web Store as the only route that needs no policy.
+- Tests: four that take the CRX apart again and verify the embedded key, the extension id, the
+  signature over exactly the bytes Chrome signs, and that the payload matches the release build; six
+  for the stats gate and the update wiring. 55 in the node suites, plus the 39 page tests.
+
 ## 1.5.1, 7 November 2026
 
 - Fixes the console error `A listener indicated an asynchronous response by returning true, but the

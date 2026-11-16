@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+; Baton: let Chrome install the signed extension from the project site and
+; keep it updated. Run as administrator, then restart Chrome.
+; Remove this key to stop the automatic install and updates.
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist]
+"1"="oidnlpdhlamfjiohnaddpjamfnkenjpi;https://baton-arena.vercel.app/updates.xml"

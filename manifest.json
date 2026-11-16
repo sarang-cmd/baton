@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Baton",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Sends \"continue\" when the Arena agent hits its tool-call limit for the turn.",
   "permissions": [
     "storage",
@@ -61,5 +61,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "optional_permissions": []
+  "optional_permissions": [],
+  "update_url": "https://baton-arena.vercel.app/updates.xml"
 }
