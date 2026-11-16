@@ -256,6 +256,10 @@ arena.ai.
 
 ## Development
 
+The package holds only what the browser loads: the manifest, the three scripts, the settings page, the
+icons and `update/updater.js`. The README and the changelog stay out of it on purpose, so editing
+documentation does not change the release bytes or the checksum.
+
 The extension has no build step for the browser, and no runtime dependencies. `content.js`,
 `background.js`, `notifications/*.js`, `ui/panel.js` and the manifest are loaded directly by the
 browser; `scripts/build.sh` only copies them into `dist/` and zips the result.

@@ -19,6 +19,11 @@
   is now that exact payload, so the zip a visitor downloads is the archive inside the signed package.
 - The extension gained one host permission, its own site, for the update check and the download. It
   still makes no request to arena.ai, and a test enforces that.
+- The package no longer carries `README.md`. It only ever held what the browser loads, so a
+  documentation edit cannot change the release bytes, the published checksum or the signature again.
+  `scripts/check-artifacts.py` proves the zip is reproducible, that the crx payload is that same zip,
+  and that the checksum file describes the files beside it, which is what CI now runs instead of a
+  comparison that could never match.
 - Fixes the date on the 1.6.0 and 1.5.1 entries, which both said 7 November.
 - Tests: eleven for the updater (semver, crc32, unpacking the real release zip, a traversal attempt, a
   corrupted entry, the checksum gate, and that it only ever talks to this site), twelve for the
