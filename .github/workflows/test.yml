@@ -19,6 +19,8 @@ jobs:
         run: npm test
       - name: Check the release build packs cleanly
         run: bash scripts/build.sh
-      - name: Check the zip the site serves is current
-        run: git diff --exit-code site/baton.zip || {
-             echo "site/baton.zip is out of date. Run bash scripts/build.sh and commit it."; exit 1; }
+      # CI has no signing key, so it cannot re-sign the crx. It can prove that the
+      # zip the site serves is the tree in front of it, that releases.json
+      # describes exactly those bytes, and that every version agrees.
+      - name: Check the artifacts under site are current
+        run: python3 scripts/check-artifacts.py

@@ -1,7 +1,7 @@
 {
   "version": "1.7.0",
-  "notes": ", 16 November 2026\n- **Real download stats.** Downloads are now counted on the server instead of read from the public\nreleases API. `POST /api/downloads` writes a row to a Neon Postgres table, `GET /api/stats` returns\nthe dashboard only after comparing the password with `BATON_STATS_PASSWORD` in the environment, and\n`site/stats.html` shows totals, distinct addresses, a day by day chart, and breakdowns by version,\nchannel, button, country and browser, plus the newest events.\n- **Unique per address.** Each row keeps the address the request came from, which is what makes a\ndistinct count possible",
-  "publishedAt": "2026-11-16T17:53:03Z",
+  "notes": "Real download stats. Downloads are now counted on the server instead of read from the public\nreleases API. POST /api/downloads writes a row to a Neon Postgres table, GET /api/stats returns\nthe dashboard only after comparing the password with BATON_STATS_PASSWORD in the environment, and\nsite/stats.html shows totals, distinct addresses, a day by day chart, and breakdowns by version,\nchannel, button, country and browser, plus the newest events.\nUnique per address. Each row keeps the address the request came from, which is what makes a\ndistinct count possible. That is a privacy cost, so site/privacy.html now says it plainly, and the\nten second window keeps a double click from counting twice.\nUpdates the way lm-subs does them. update/updater.js lets Baton update an unpacked folder in\nplace: link the folder once, then it fetches /api/version, downloads the zip, verifies the\npublished SHA-256 a",
+  "publishedAt": "2026-11-16T18:00:17Z",
   "zip": {
     "version": "1.7.0",
     "url": "https://baton-arena.vercel.app/baton.zip",

@@ -77,8 +77,9 @@ if missing:
 print("packed", out, len(files), "files")
 PY_EOF
 
-# The landing page offers a direct download, so the artifact ships with the site.
-cp "$NAME.zip" ../site/"$NAME".zip
-
-echo "Built dist/$NAME.zip and site/$NAME.zip"
+# site/baton.zip is not a copy of this one. It is the prefix free payload that
+# scripts/make-crx.py packs into the crx as well, so that one set of bytes serves
+# the download, the crx and the checksum /api/version publishes. Run the crx step
+# after this one to refresh it.
+echo "Built dist/$NAME.zip. Now run python3 scripts/make-crx.py to refresh site/baton.zip."
 python3 -c "import hashlib,sys;print('sha256', hashlib.sha256(open('$NAME.zip','rb').read()).hexdigest()[:16])"
