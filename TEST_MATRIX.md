@@ -66,6 +66,34 @@ five minute fix and a week of guessing.
 | D5 | Send a prompt and watch the poll list for the whole run | The list goes from one user message to an assistant message with pending true, then pending false | If the count never moves past one, `/api/chat` is not where the live transcript is, and the report proves it |
 | D6 | After a run, read the `Worker:` line | `a notification was created`, or the exact reason it was refused | Tells detection and delivery apart without guessing |
 
+## Counting rows (1.7.0)
+
+These need the live site, not the extension. Run them in a normal window with the download dialog.
+
+| # | Steps | Expected | If it fails |
+| --- | --- | --- | --- |
+| C1 | Open the site, press Download, take the zip | The file downloads and the row count on the stats page goes up by one | The beacon did not fire: check the network tab for a request to `/api/downloads` |
+| C2 | Press the same button twice within ten seconds | One row, not two | The dedupe clause is missing from `site/api/downloads.js` |
+| C3 | Press Download, then close the dialog without taking a file | No new row | The count is on the wrong event |
+| C4 | Open `/stats.html`, enter a wrong password | The page stays locked and says it is not the password | The gate is trusting the client again |
+| C5 | Enter the right password, then close and reopen the tab | Locked again, and the password is not remembered | The password is being kept in localStorage instead of sessionStorage |
+| C6 | On the dashboard, compare "Unique addresses" with "Downloads" | Unique is lower or equal, and it is not simply the same number | The distinct count is not running |
+| C7 | Open `/api/stats` in a tab with no password header | `401` and a short JSON error, no numbers | The endpoint is leaking aggregates without the password |
+
+## Update rows (1.7.0)
+
+| # | Steps | Expected | If it fails |
+| --- | --- | --- | --- |
+| U1 | Settings page, press **Choose folder**, pick the unzipped Baton folder | The line says the folder is linked | `showDirectoryPicker` needs a real click, and the page needs to be the extension's own page |
+| U2 | Bump `manifest.json`, rebuild, repack, and open the settings page | A banner names the newer version and offers **Update in place** | `/api/version` is not reachable, or the check cache has not expired |
+| U3 | Press **Update in place** | The line names the version and the folder, and says to press reload | Read the message: it says which check refused |
+| U4 | Press reload on `chrome://extensions` | The extension runs the new version | The folder was not the one Chrome loaded |
+| U5 | Corrupt `site/baton.zip`, repack, press **Update in place** | Refused, nothing written, the checksum is named as the reason | The checksum gate is not running before the write |
+
+**Not run anywhere yet:** the update writes depend on the File System Access API, which does not exist
+in Node or in the headless browser available here, so U1 to U5 have only been read, not executed. The
+rest of the updater (checksums, unpacking, refusals) is covered by `test/updater.test.js`.
+
 ## What a passing run proves
 
 Rows 1 to 8 and 13 prove the three events, dedupe and the toggles for the modes with a verified

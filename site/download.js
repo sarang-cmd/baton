@@ -59,11 +59,14 @@
   // the direct download closes the sheet so the download bar is visible
   if (direct) {
     direct.addEventListener('click', () => {
+      // counted here, not on load: only a real click is a download
+      if (window.trackDownload) window.trackDownload({ channel: 'site', source: 'dialog' });
       setTimeout(closeDialog, 60);
     });
   }
   if (source) {
     source.addEventListener('click', () => {
+      if (window.trackDownload) window.trackDownload({ channel: 'github', source: 'dialog' });
       setTimeout(closeDialog, 60);
     });
   }

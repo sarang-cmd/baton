@@ -47,45 +47,90 @@ test('the policy file uses the id in the update manifest', () => {
   assert.ok(reg.includes('\r\n'), 'the registry file must use CRLF line endings');
 });
 
-test('the stats page never contains the password in plain text', () => {
-  assert.ok(!/baton-harbor-2026/.test(statsHtml), 'the password is written into the page');
-  const digest = /const PASS_SHA256 = '([0-9a-f]{64})'/.exec(statsHtml);
-  assert.ok(digest, 'the page does not hold a sha256 of the password');
-  const expected = crypto.createHash('sha256').update('baton-harbor-2026').digest('hex');
-  assert.equal(digest[1], expected, 'the hash does not match the documented password');
+test('the password lives in the server environment, not in any file', () => {
+  const files = [
+    'site/stats.html',
+    'site/api/stats.js',
+    'site/api/downloads.js',
+    'site/api/version.js',
+    'site/api/_db.js',
+    'site/track.js',
+  ];
+  for (const rel of files) {
+    const text = fs.readFileSync(path.join(root, rel), 'utf8');
+    assert.ok(!/baton-harbor-2026/.test(text), rel + ' has the stats password written into it');
+  }
+  const api = fs.readFileSync(path.join(siteDir, 'api', 'stats.js'), 'utf8');
+  assert.match(api, /process\.env\.BATON_STATS_PASSWORD/,
+    'the stats endpoint must read its password from the environment');
+  assert.match(api, /sameSecret/, 'the password must be compared without leaking its length');
 });
 
-test('the stats page is not indexable and needs no extra permission', () => {
+test('the stats page is not indexable and pulls in no third party', () => {
   assert.match(statsHtml, /<meta name="robots" content="noindex/);
   assert.ok(!/googleapis|analytics|gtag/.test(statsHtml), 'the stats page pulls in a third party');
-  // it talks to GitHub and nothing else
   const urls = [...statsHtml.matchAll(/https:\/\/[a-z0-9./-]+/gi)].map((m) => m[0]);
-  const thirdParty = urls.filter((u) => !/github\.com|schema\.org|baton-arena\.vercel\.app/.test(u));
+  const thirdParty = urls.filter((u) => !/schema\.org|baton-arena\.vercel\.app/.test(u));
   assert.deepEqual(thirdParty, []);
 });
 
-test('the stats gate hides the numbers until the password is right', async () => {
+test('counts are asked for by the page and never counted on load', () => {
+  const track = fs.readFileSync(path.join(siteDir, 'track.js'), 'utf8');
+  const download = fs.readFileSync(path.join(siteDir, 'download.js'), 'utf8');
+  assert.match(track, /\/api\/downloads/, 'the beacon does not point at the counter');
+  assert.match(track, /sendBeacon/, 'the beacon should survive the page going away');
+  assert.match(track, /catch\(function \(\) \{\}\)|catch \(_\)/, 'a failed beacon must be swallowed');
+  // counted in the click handler, so opening the dialog is not a download
+  assert.match(download, /trackDownload\(\{ channel: 'site'/, 'the direct download is not counted');
+  assert.match(download, /trackDownload\(\{ channel: 'github'/, 'the source download is not counted');
+  const index = fs.readFileSync(path.join(siteDir, 'index.html'), 'utf8');
+  assert.match(index, /<script src="track\.js"><\/script>/, 'the page never loads the beacon');
+});
+
+test('the stats gate hides the numbers until the server accepts the password', async () => {
   let JSDOM;
   try {
     ({ JSDOM } = require('jsdom'));
   } catch (_) {
     return; // jsdom is a devDependency installed by npm install
   }
-  const dom = new JSDOM(statsHtml, { url: 'https://baton-arena.vercel.app/stats.html', runScripts: 'dangerously' });
-  const { window } = dom;
-  // jsdom has no crypto.subtle by default in all versions; supply it from node
-  if (!window.crypto || !window.crypto.subtle) {
-    Object.defineProperty(window, 'crypto', { value: crypto.webcrypto });
-  }
-  window.fetch = () => Promise.resolve({
+  const password = 'baton-harbor-2026';
+  const payload = {
     ok: true,
-    json: () => Promise.resolve([
-      { tag_name: 'v1.5.1', published_at: '2026-11-16T00:00:00Z', draft: false,
-        assets: [{ name: 'baton.zip', download_count: 7 }, { name: 'baton.crx', download_count: 3 }] },
-      { tag_name: 'v1.5.0', published_at: '2026-11-15T00:00:00Z', draft: false,
-        assets: [{ name: 'baton.zip', download_count: 11 }] }
-    ])
+    range: { days: 30 },
+    totals: {
+      downloads: 12, uniqueIps: 5, today: 2, last7: 9, last30: 12,
+      updateChecks: 3, uniqueUpdateIps: 2,
+      firstAt: '2026-11-01T10:00:00Z', lastAt: '2026-11-16T10:00:00Z',
+    },
+    daily: [
+      { date: '2026-11-15', count: 4, uniqueIps: 2 },
+      { date: '2026-11-16', count: 8, uniqueIps: 3 },
+    ],
+    byVersion: [{ label: '1.7.0', count: 12, uniqueIps: 5 }],
+    byChannel: [{ label: 'site', count: 10 }, { label: 'github', count: 2 }],
+    bySource: [{ label: 'dialog', count: 12 }],
+    byCountry: [{ label: 'DE', count: 9, uniqueIps: 4 }],
+    byBrowser: [{ label: 'Chrome', count: 12 }],
+    byDay: [],
+    recent: [
+      { kind: 'download', version: '1.7.0', channel: 'site', source: 'dialog',
+        ip: '203.0.113.9', country: 'DE', browser: 'Chrome', at: '2026-11-16T10:00:00Z' },
+    ],
+  };
+
+  const dom = new JSDOM(statsHtml, {
+    url: 'https://baton-arena.vercel.app/stats.html',
+    runScripts: 'dangerously',
   });
+  const { window } = dom;
+  window.fetch = (url, options) => {
+    const key = (options && options.headers && options.headers['x-baton-key']) || '';
+    if (key !== password) {
+      return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ ok: false, error: 'Wrong password' }) });
+    }
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(payload) });
+  };
 
   const stats = window.document.getElementById('statsSection');
   const err = window.document.getElementById('gateErr');
@@ -99,15 +144,18 @@ test('the stats gate hides the numbers until the password is right', async () =>
   assert.equal(stats.hidden, true, 'a wrong password unlocked the page');
   assert.match(err.textContent, /not the password/);
 
-  input.value = 'baton-harbor-2026';
+  input.value = password;
   window.document.getElementById('gateForm')
     .dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-  await new Promise((r) => setTimeout(r, 120));
+  await new Promise((r) => setTimeout(r, 150));
   assert.equal(stats.hidden, false, 'the right password did not unlock the page');
-  const total = window.document.querySelector('[data-stat="total"]').textContent;
-  assert.equal(total, '21', 'the totals are wrong: got ' + total);
-  const crx = window.document.querySelector('[data-stat="crx"]').textContent;
-  assert.equal(crx, '3', 'crx downloads should be counted separately');
-  assert.equal(window.document.querySelectorAll('#relBody tr').length, 2);
+
+  const read = (name) => window.document.querySelector('[data-stat="' + name + '"]').textContent;
+  assert.equal(read('downloads'), '12');
+  assert.equal(read('uniqueIps'), '5', 'unique addresses are the point of the counter');
+  assert.equal(read('updateChecks'), '3');
+  assert.equal(window.document.querySelectorAll('#versionBody tr').length, 1);
+  assert.equal(window.document.querySelectorAll('#recentBody tr').length, 1);
+  assert.match(window.document.querySelector('#recentBody td').textContent, /2026/);
   dom.window.close();
 });

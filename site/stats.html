@@ -11,31 +11,54 @@
 {"@context":"https://schema.org","@type":"WebPage","name":"Baton download stats"}
 </script>
 <style>
-  /* page only: the gate, the totals, and the release table */
-  .stat-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .stat { padding: 1.1rem 1.2rem; }
-  .stat-value { font-family: var(--serif); font-size: 2rem; line-height: 1; letter-spacing: -0.02em; }
-  .stat-label { margin-top: 0.45rem; font-size: 0.82rem; color: var(--muted); }
-  .gate { max-width: 420px; margin: 2.5rem auto; padding: 1.6rem; }
+  /* page only: the gate, the totals, and the tables */
+  .stat-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .stat { padding: 1.05rem 1.15rem; }
+  .stat-value { font-family: var(--serif); font-size: 1.9rem; line-height: 1; letter-spacing: -0.02em; }
+  .stat-label { margin-top: 0.45rem; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+  .gate { max-width: 430px; margin: 2.5rem auto; padding: 1.6rem; }
   .gate h1 { margin: 0 0 0.4rem; font-family: var(--serif); font-size: 1.5rem; }
   .gate p { margin: 0 0 1.2rem; color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
-  .gate label { display: block; font-size: 0.82rem; letter-spacing: 0.02em; margin-bottom: 0.4rem; }
+  .gate label { display: block; font-size: 0.82rem; margin-bottom: 0.4rem; }
   .gate input { width: 100%; padding: 0.7rem 0.85rem; font: inherit; border: 0; border-radius: var(--r-control);
-    background: var(--bg, #ece8e1); color: var(--ink); box-shadow: var(--shadow-in-sm); }
+    background: var(--stone-sunk, #e0dcd3); color: var(--ink); box-shadow: var(--shadow-in-sm); }
   .gate input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .gate .btn { width: 100%; margin-top: 1rem; }
   .gate-error { min-height: 1.4rem; margin-top: 0.7rem; font-size: 0.82rem; color: #a13d3d; }
   .gate-note { margin-top: 1.1rem; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
-  .rel-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .rel-table th { text-align: left; font-weight: 600; font-size: 0.76rem; letter-spacing: 0.04em;
-    text-transform: none; color: var(--muted); padding: 0 0 0.5rem; border-bottom: 1px solid rgba(0,0,0,0.08); }
-  .rel-table td { padding: 0.6rem 0; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: top; }
-  .rel-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .bar { height: 6px; border-radius: 3px; background: var(--accent); opacity: 0.75; margin-top: 0.4rem; }
+
+  .block { margin-top: 1.5rem; padding: 1.3rem 1.35rem; }
+  .block h2 { margin: 0 0 0.9rem; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; }
+  .block p.lead { margin: -0.4rem 0 1rem; font-size: 0.84rem; color: var(--muted); line-height: 1.5; }
+
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 96px; padding-top: 0.4rem; }
+  .bars .bar { flex: 1 1 auto; min-width: 3px; border-radius: 3px 3px 0 0; background: var(--accent);
+    opacity: 0.55; box-shadow: none; }
+  .bars .bar[data-peak="1"] { opacity: 0.9; }
+  .axis { display: flex; justify-content: space-between; margin-top: 0.45rem; font-size: 0.74rem; color: var(--muted); }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  table.data th { text-align: left; font-weight: 600; font-size: 0.76rem; color: var(--muted);
+    padding: 0 0 0.45rem; border-bottom: 1px solid rgba(0,0,0,0.08); }
+  table.data td { padding: 0.5rem 0; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: top; }
+  table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.data tr:last-child td { border-bottom: 0; }
+  .mini { height: 5px; border-radius: 3px; background: var(--accent); opacity: 0.6; margin-top: 0.35rem; }
+
+  .two-up { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .dl-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+  .dl-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.42rem 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05); }
+  .dl-list li:last-child { border-bottom: 0; }
+  .dl-list .count { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .dl-list .sub { color: var(--muted); font-size: 0.78rem; }
+
   .stats-actions { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; margin-top: 1.2rem; }
   .stamp { font-size: 0.78rem; color: var(--muted); }
+  .empty { font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 0.6rem 0 0; }
+  .range-label { font-size: 0.8rem; color: var(--muted); margin-left: auto; }
   @media (prefers-reduced-motion: no-preference) {
-    .bar { transition: width 320ms ease-out; }
+    .mini, .bars .bar { transition: width 320ms ease-out, height 320ms ease-out; }
   }
 </style>
 </head>
@@ -57,17 +80,18 @@
   <section class="section" id="gateSection">
     <div class="plate gate" id="gate">
       <h1>Download stats</h1>
-      <p>Numbers from the public releases API. Enter the password to see them.</p>
+      <p>Counted on the server when someone takes a file. Enter the password to see them.</p>
       <form id="gateForm">
         <label for="pass">Password</label>
         <input id="pass" name="pass" type="password" autocomplete="current-password"
-               aria-describedby="gateErr" required />
-        <button class="btn btn-primary" type="submit">Show stats</button>
+               aria-describedby="gateErr gateNote" required />
+        <button class="btn btn-primary" type="submit" id="gateBtn">Show stats</button>
         <p class="gate-error" id="gateErr" role="alert"></p>
       </form>
-      <p class="gate-note">
-        This is a curtain, not security. The page and the API are both public, so anyone who opens
-        developer tools can reach the same numbers. It keeps them out of casual view, nothing more.
+      <p class="gate-note" id="gateNote">
+        The password is checked on the server, so the numbers are not sitting in a public file. It is
+        still one shared password rather than an account, so treat it as a curtain. It is kept in
+        this tab only and forgotten when the tab closes.
       </p>
     </div>
   </section>
@@ -75,56 +99,123 @@
   <section class="section" id="statsSection" hidden>
     <div class="wrap">
       <h1 class="prose" id="statsTitle" tabindex="-1">Downloads</h1>
+      <p class="small muted" id="rangeLine">Counting every download and update check, all time.</p>
 
       <div class="stat-grid">
         <div class="plate stat">
-          <div class="stat-value" data-stat="total">-</div>
-          <div class="stat-label">Total asset downloads</div>
+          <div class="stat-value" data-stat="downloads">-</div>
+          <div class="stat-label">Downloads recorded</div>
         </div>
         <div class="plate stat">
-          <div class="stat-value" data-stat="zip">-</div>
-          <div class="stat-label">Release zip</div>
+          <div class="stat-value" data-stat="uniqueIps">-</div>
+          <div class="stat-label">Unique addresses</div>
         </div>
         <div class="plate stat">
-          <div class="stat-value" data-stat="crx">-</div>
-          <div class="stat-label">Signed crx</div>
+          <div class="stat-value" data-stat="today">-</div>
+          <div class="stat-label">Today</div>
         </div>
         <div class="plate stat">
-          <div class="stat-value" data-stat="latest">-</div>
-          <div class="stat-label">Newest release alone</div>
+          <div class="stat-value" data-stat="last30">-</div>
+          <div class="stat-label">Last 30 days</div>
+        </div>
+        <div class="plate stat">
+          <div class="stat-value" data-stat="updateChecks">-</div>
+          <div class="stat-label">Update checks from installs</div>
         </div>
       </div>
 
-      <div class="plate" style="margin-top: 1.6rem; padding: 1.4rem">
-        <table class="rel-table" id="relTable">
-          <caption class="small muted" style="text-align: left; padding-bottom: 0.9rem">
-            One row per release, newest first. Bars are relative to the busiest release.
+      <div class="plate block">
+        <h2>Downloads per day</h2>
+        <p class="lead" id="dailyLead">One bar per day. The tallest bar is the busiest day in the range.</p>
+        <div class="bars" id="dailyBars" role="img" aria-label="Downloads per day"></div>
+        <div class="axis"><span id="axisStart"></span><span id="axisEnd"></span></div>
+        <p class="empty" id="dailyEmpty" hidden>No downloads in this range yet.</p>
+      </div>
+
+      <div class="two-up">
+        <div class="plate block">
+          <h2>By version</h2>
+          <table class="data" id="versionTable">
+            <thead>
+              <tr><th scope="col">Version</th><th scope="col" class="num">Downloads</th><th scope="col" class="num">Addresses</th></tr>
+            </thead>
+            <tbody id="versionBody"></tbody>
+          </table>
+          <p class="empty" id="versionEmpty" hidden>Nothing recorded yet.</p>
+        </div>
+
+        <div class="plate block">
+          <h2>Where it came from</h2>
+          <table class="data" id="channelTable">
+            <thead>
+              <tr><th scope="col">Channel</th><th scope="col" class="num">Downloads</th></tr>
+            </thead>
+            <tbody id="channelBody"></tbody>
+          </table>
+          <ul class="dl-list" id="sourceList" style="margin-top: 1rem"></ul>
+          <p class="empty" id="channelEmpty" hidden>Nothing recorded yet.</p>
+        </div>
+      </div>
+
+      <div class="two-up">
+        <div class="plate block">
+          <h2>By country</h2>
+          <p class="lead">Country comes from the header the hosting edge already sets. No lookup is made.</p>
+          <ul class="dl-list" id="countryList"></ul>
+          <p class="empty" id="countryEmpty" hidden>No country was resolved for these visits.</p>
+        </div>
+        <div class="plate block">
+          <h2>By browser</h2>
+          <p class="lead">Read from the user agent and reduced to a family name. The full string is never stored.</p>
+          <ul class="dl-list" id="browserList"></ul>
+          <p class="empty" id="browserEmpty" hidden>Nothing recorded yet.</p>
+        </div>
+      </div>
+
+      <div class="plate block">
+        <h2>Newest events</h2>
+        <p class="lead">The last 25, newest first, with the address each one came from.</p>
+        <table class="data" id="recentTable">
+          <caption class="small muted" style="text-align: left; padding-bottom: 0.7rem">
+            Times are UTC.
           </caption>
           <thead>
             <tr>
-              <th scope="col">Release</th>
-              <th scope="col">Published</th>
-              <th scope="col" class="num">Downloads</th>
+              <th scope="col">When</th>
+              <th scope="col">Address</th>
+              <th scope="col">Version</th>
+              <th scope="col">Channel</th>
+              <th scope="col">Country</th>
+              <th scope="col">Browser</th>
             </tr>
           </thead>
-          <tbody id="relBody"></tbody>
+          <tbody id="recentBody"></tbody>
         </table>
-        <p class="small muted" id="emptyState" hidden>
-          No release assets found. Either nothing has been published yet, or the API refused the
-          request and this page cannot tell which.
-        </p>
+        <p class="empty" id="recentEmpty" hidden>No events yet. The first download will appear here.</p>
       </div>
 
       <div class="stats-actions">
         <button class="btn" type="button" id="refreshBtn">Refresh</button>
+        <label class="small muted" for="rangeSelect">Range</label>
+        <select id="rangeSelect" class="small" style="padding: 0.35rem 0.5rem; border-radius: var(--r-chip);
+          border: 0; background: var(--stone-sunk, #e0dcd3); color: var(--ink); font: inherit;">
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+          <option value="365">1 year</option>
+        </select>
+        <button class="btn btn-ghost" type="button" id="lockBtn">Lock</button>
         <span class="stamp" id="stamp" role="status"></span>
       </div>
 
-      <p class="small muted" style="margin-top: 1.4rem; max-width: 60ch; line-height: 1.6">
-        What this counts, and what it cannot. GitHub counts a download every time a release asset is
-        fetched, so re-downloads and automated fetches are included. The zip that the landing page
-        serves directly is not a release asset and is not counted here at all, so the true number is
-        higher than this total. The site itself is on a free plan and keeps no visitor log.
+      <p class="small muted" style="margin-top: 1.4rem; max-width: 62ch; line-height: 1.6">
+        What this counts, and what it cannot. A row is written when the page asks the server to count
+        a download, so a download taken straight from the GitHub releases page or by an automated
+        fetcher is not in this table. Unique addresses are counted by distinct address, so one person
+        on a changing connection can look like two, and a shared office connection can look like one.
+        The ten second window means a double click counts once. Countries are whatever the edge
+        resolved, which is often empty. Nothing here is sold, shared, or joined to an account,
+        because there are no accounts.
       </p>
     </div>
   </section>
@@ -132,176 +223,263 @@
 
 <script>
 (() => {
-  // The password is not stored, only the SHA-256 of it. Change it by replacing
-  // this constant with the hash of the new one:
-  //   printf %s "new-password" | shasum -a 256
-  const PASS_SHA256 = '3f2a7b0e1752aa8aaae6a2f767d63965ab437db24a7a4ad5bc09afb10053cd7a';
-  const REPO = 'sarang-cmd/baton';
-  const API = 'https://api.github.com/repos/' + REPO + '/releases?per_page=100';
-  const CACHE_KEY = 'batonStatsCache';
-  const CACHE_MS = 5 * 60 * 1000;
-
+  const KEY = 'batonStatsKey';
   const gate = document.getElementById('gate');
   const gateForm = document.getElementById('gateForm');
   const gateSection = document.getElementById('gateSection');
+  const gateBtn = document.getElementById('gateBtn');
   const passInput = document.getElementById('pass');
   const gateErr = document.getElementById('gateErr');
   const statsSection = document.getElementById('statsSection');
-  const relBody = document.getElementById('relBody');
   const stamp = document.getElementById('stamp');
-  const emptyState = document.getElementById('emptyState');
   const refreshBtn = document.getElementById('refreshBtn');
+  const rangeSelect = document.getElementById('rangeSelect');
 
-  const hex = (buffer) => [...new Uint8Array(buffer)]
-    .map((b) => b.toString(16).padStart(2, '0')).join('');
+  let key = '';
+  let lastData = null;
 
-  async function passwordMatches(value) {
-    try {
-      const bytes = new TextEncoder().encode(value);
-      const digest = await crypto.subtle.digest('SHA-256', bytes);
-      return hex(digest) === PASS_SHA256;
-    } catch (_) {
-      return false;
-    }
-  }
+  const number = (n) => (n === null || n === undefined ? '-' : Number(n).toLocaleString('en-GB'));
+  const text = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  const clear = (el) => { if (el) el.textContent = ''; };
+  const show = (el, visible) => { if (el) el.hidden = !visible; };
 
-  const number = (n) => (n === null || n === undefined ? '-' : n.toLocaleString('en-GB'));
-
-  function downloadCount(release) {
-    return (release.assets || []).reduce((sum, a) => sum + (a.download_count || 0), 0);
-  }
-
-  function countByKind(releases, pattern) {
-    let total = 0;
-    for (const r of releases) {
-      for (const a of r.assets || []) {
-        if (pattern.test(a.name)) total += a.download_count || 0;
-      }
-    }
-    return total;
-  }
-
-  function render(releases, at) {
-    const published = releases.filter((r) => !r.draft);
-    const total = published.reduce((sum, r) => sum + downloadCount(r), 0);
-    const zip = countByKind(published, /\.zip$/i);
-    const crx = countByKind(published, /\.crx$/i);
-    const newest = published.length ? downloadCount(published[0]) : 0;
-
-    const set = (key, value) => {
-      const el = document.querySelector('[data-stat="' + key + '"]');
-      if (el) el.textContent = typeof value === 'number' ? number(value) : value;
-    };
-    set('total', total);
-    set('zip', zip);
-    set('crx', crx);
-    set('latest', newest);
-
-    const busiest = Math.max(1, ...published.map(downloadCount));
-    relBody.textContent = '';
-    for (const r of published) {
-      const count = downloadCount(r);
-      const tr = document.createElement('tr');
-
-      const nameCell = document.createElement('td');
-      const link = document.createElement('a');
-      link.href = r.html_url;
-      link.textContent = r.tag_name || r.name || 'unnamed';
-      link.rel = 'noopener';
-      nameCell.appendChild(link);
-      if (r.prerelease) {
-        const tag = document.createElement('span');
-        tag.className = 'small muted';
-        tag.textContent = '  prerelease';
-        nameCell.appendChild(tag);
-      }
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      bar.style.width = Math.round((count / busiest) * 100) + '%';
-      nameCell.appendChild(bar);
-
-      const dateCell = document.createElement('td');
-      dateCell.textContent = r.published_at
-        ? new Date(r.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-        : 'unpublished';
-
-      const numCell = document.createElement('td');
-      numCell.className = 'num';
-      numCell.textContent = number(count);
-
-      tr.append(nameCell, dateCell, numCell);
-      relBody.appendChild(tr);
-    }
-    emptyState.hidden = published.length > 0;
-    stamp.textContent = 'Updated ' + new Date(at).toLocaleTimeString('en-GB') + '. Cached for five minutes.';
-  }
-
-  function readCache() {
-    try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || Date.now() - parsed.at > CACHE_MS) return null;
-      return parsed;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function writeCache(releases) {
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), releases }));
-    } catch (_) {}
-  }
-
-  async function load(force) {
-    if (!force) {
-      const cached = readCache();
-      if (cached) { render(cached.releases, cached.at); return; }
-    }
-    stamp.textContent = 'Fetching from GitHub...';
+  async function load(days) {
+    stamp.textContent = 'Loading...';
     refreshBtn.disabled = true;
     try {
-      const res = await fetch(API, { headers: { accept: 'application/vnd.github+json' } });
-      if (!res.ok) throw new Error('GitHub answered ' + res.status);
-      const releases = await res.json();
-      if (!Array.isArray(releases)) throw new Error('unexpected response');
-      writeCache(releases);
-      render(releases, Date.now());
-    } catch (err) {
-      stamp.textContent = 'Could not load stats: ' + err.message +
-        '. The public API allows 60 requests an hour per address.';
-      emptyState.hidden = false;
+      const res = await fetch('/api/stats?days=' + encodeURIComponent(days), {
+        headers: { 'x-baton-key': key },
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 401) {
+        lock('That password was refused. Try again.');
+        return;
+      }
+      if (!res.ok || !data || !data.ok) {
+        throw new Error((data && (data.error || data.detail)) || 'the server answered ' + res.status);
+      }
+      lastData = data;
+      render(data);
+      stamp.textContent = 'Updated ' + new Date().toLocaleTimeString('en-GB') + '.';
+    } catch (error) {
+      stamp.textContent = 'Could not load stats: ' + (error.message || 'unknown error') + '.';
     } finally {
       refreshBtn.disabled = false;
     }
   }
 
+  function render(data) {
+    const t = data.totals || {};
+    const set = (name, value) => {
+      const el = document.querySelector('[data-stat="' + name + '"]');
+      if (el) el.textContent = number(value);
+    };
+    set('downloads', t.downloads);
+    set('uniqueIps', t.uniqueIps);
+    set('today', t.today);
+    set('last30', t.last30);
+    set('updateChecks', t.updateChecks);
+
+    text('rangeLine', t.downloads
+      ? 'First recorded ' + new Date(t.firstAt).toLocaleDateString('en-GB') +
+        ', last ' + new Date(t.lastAt).toLocaleString('en-GB') + '.'
+      : 'Nothing recorded yet.');
+
+    // daily bars
+    const bars = document.getElementById('dailyBars');
+    const daily = data.daily || [];
+    clear(bars);
+    const peak = Math.max(1, ...daily.map((d) => d.count));
+    for (const day of daily) {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.height = Math.max(2, Math.round((day.count / peak) * 96)) + 'px';
+      if (day.count === peak && day.count > 0) bar.setAttribute('data-peak', '1');
+      bar.title = day.date + ': ' + day.count + ' downloads, ' + day.uniqueIps + ' addresses';
+      bar.setAttribute('aria-label', bar.title);
+      bars.appendChild(bar);
+    }
+    bars.setAttribute('aria-label',
+      'Downloads per day over ' + data.range.days + ' days, busiest day ' + peak + '.');
+    if (daily.length) {
+      text('axisStart', new Date(daily[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+      text('axisEnd', new Date(daily[daily.length - 1].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+    }
+    show(document.getElementById('dailyEmpty'), (t.downloads || 0) === 0);
+
+    // by version
+    const versionBody = document.getElementById('versionBody');
+    clear(versionBody);
+    const versions = data.byVersion || [];
+    const topVersion = Math.max(1, ...versions.map((v) => v.count));
+    for (const v of versions) {
+      const tr = document.createElement('tr');
+      const name = document.createElement('td');
+      name.textContent = v.label;
+      const mini = document.createElement('div');
+      mini.className = 'mini';
+      mini.style.width = Math.round((v.count / topVersion) * 100) + '%';
+      name.appendChild(mini);
+      const count = document.createElement('td');
+      count.className = 'num';
+      count.textContent = number(v.count);
+      const ips = document.createElement('td');
+      ips.className = 'num';
+      ips.textContent = number(v.uniqueIps);
+      tr.append(name, count, ips);
+      versionBody.appendChild(tr);
+    }
+    show(document.getElementById('versionEmpty'), versions.length === 0);
+
+    // channels and sources
+    const channelBody = document.getElementById('channelBody');
+    clear(channelBody);
+    for (const c of data.byChannel || []) {
+      const tr = document.createElement('tr');
+      const name = document.createElement('td');
+      name.textContent = c.label;
+      const count = document.createElement('td');
+      count.className = 'num';
+      count.textContent = number(c.count);
+      tr.append(name, count);
+      channelBody.appendChild(tr);
+    }
+    show(document.getElementById('channelEmpty'), (data.byChannel || []).length === 0);
+
+    const sourceList = document.getElementById('sourceList');
+    clear(sourceList);
+    for (const s of data.bySource || []) {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = s.label;
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = number(s.count);
+      li.append(name, count);
+      sourceList.appendChild(li);
+    }
+
+    // countries and browsers
+    const countryList = document.getElementById('countryList');
+    clear(countryList);
+    for (const c of data.byCountry || []) {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = c.label;
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.innerHTML = '';
+      count.textContent = number(c.count) + ' ';
+      const sub = document.createElement('span');
+      sub.className = 'sub';
+      sub.textContent = '(' + number(c.uniqueIps) + ')';
+      count.appendChild(sub);
+      li.append(name, count);
+      countryList.appendChild(li);
+    }
+    show(document.getElementById('countryEmpty'), (data.byCountry || []).length === 0);
+
+    const browserList = document.getElementById('browserList');
+    clear(browserList);
+    for (const b of data.byBrowser || []) {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = b.label;
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = number(b.count);
+      li.append(name, count);
+      browserList.appendChild(li);
+    }
+    show(document.getElementById('browserEmpty'), (data.byBrowser || []).length === 0);
+
+    // recent events
+    const recentBody = document.getElementById('recentBody');
+    clear(recentBody);
+    for (const r of data.recent || []) {
+      const tr = document.createElement('tr');
+      const when = document.createElement('td');
+      when.textContent = r.at ? new Date(r.at).toLocaleString('en-GB') : '';
+      const ip = document.createElement('td');
+      ip.textContent = r.ip || 'not seen';
+      const version = document.createElement('td');
+      version.textContent = r.version || 'unknown';
+      const channel = document.createElement('td');
+      channel.textContent = r.kind === 'update' ? 'update check' : (r.channel || 'site');
+      const country = document.createElement('td');
+      country.textContent = r.country || '-';
+      const browser = document.createElement('td');
+      browser.textContent = r.browser || '-';
+      tr.append(when, ip, version, channel, country, browser);
+      recentBody.appendChild(tr);
+    }
+    show(document.getElementById('recentEmpty'), (data.recent || []).length === 0);
+  }
+
   function unlock() {
     gateSection.hidden = true;
     statsSection.hidden = false;
-    document.getElementById('statsTitle').focus?.();
-    load(false);
+    const title = document.getElementById('statsTitle');
+    if (title && title.focus) title.focus();
+    load(rangeSelect.value);
+  }
+
+  function lock(message) {
+    key = '';
+    try { sessionStorage.removeItem(KEY); } catch (_) {}
+    statsSection.hidden = true;
+    gateSection.hidden = false;
+    gateErr.textContent = message || '';
+    passInput.value = '';
+    passInput.focus();
   }
 
   gateForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     gateErr.textContent = '';
-    const ok = await passwordMatches(passInput.value);
-    if (!ok) {
-      gateErr.textContent = 'That is not the password.';
-      passInput.select();
-      return;
+    gateBtn.disabled = true;
+    try {
+      const attempt = passInput.value;
+      const res = await fetch('/api/stats?days=1', {
+        headers: { 'x-baton-key': attempt },
+        cache: 'no-store',
+      });
+      if (res.status === 401) {
+        gateErr.textContent = 'That is not the password.';
+        passInput.select();
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        gateErr.textContent = 'The server cannot answer yet: ' +
+          ((data && (data.error || data.detail)) || 'status ' + res.status) + '.';
+        return;
+      }
+      key = attempt;
+      try { sessionStorage.setItem(KEY, attempt); } catch (_) {}
+      unlock();
+    } catch (error) {
+      gateErr.textContent = 'Could not reach the server: ' + (error.message || 'unknown error') + '.';
+    } finally {
+      gateBtn.disabled = false;
     }
-    try { sessionStorage.setItem('batonStatsUnlocked', '1'); } catch (_) {}
-    unlock();
   });
 
-  refreshBtn.addEventListener('click', () => load(true));
+  refreshBtn.addEventListener('click', () => load(rangeSelect.value));
+  rangeSelect.addEventListener('change', () => load(rangeSelect.value));
+  document.getElementById('lockBtn').addEventListener('click', () => lock(''));
 
-  // a reload within the same tab stays unlocked; closing the tab relocks
+  // A reload in the same tab stays unlocked; closing the tab forgets the password.
   try {
-    if (sessionStorage.getItem('batonStatsUnlocked') === '1') unlock();
+    const saved = sessionStorage.getItem(KEY);
+    if (saved) {
+      key = saved;
+      unlock();
+    }
   } catch (_) {}
 })();
 </script>

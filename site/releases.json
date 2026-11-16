@@ -1,0 +1,20 @@
+{
+  "version": "1.7.0",
+  "notes": ", 16 November 2026\n- **Real download stats.** Downloads are now counted on the server instead of read from the public\nreleases API. `POST /api/downloads` writes a row to a Neon Postgres table, `GET /api/stats` returns\nthe dashboard only after comparing the password with `BATON_STATS_PASSWORD` in the environment, and\n`site/stats.html` shows totals, distinct addresses, a day by day chart, and breakdowns by version,\nchannel, button, country and browser, plus the newest events.\n- **Unique per address.** Each row keeps the address the request came from, which is what makes a\ndistinct count possible",
+  "publishedAt": "2026-11-16T17:53:03Z",
+  "zip": {
+    "version": "1.7.0",
+    "url": "https://baton-arena.vercel.app/baton.zip",
+    "size": 79748,
+    "sha256": "832336deaca243c099456a00b495cbd4aebd61d45134327ef9bf947789d8d4e5"
+  },
+  "crx": {
+    "version": "1.7.0",
+    "url": "https://baton-arena.vercel.app/baton.crx",
+    "size": 80341,
+    "sha256": "b8970b28d03425f0fe8b36944f37218603b35af5bb6aabf10272cc74db443022"
+  },
+  "minimum": {
+    "chrome": "116"
+  }
+}

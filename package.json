@@ -1,11 +1,11 @@
 {
   "name": "baton",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "description": "Sends \"continue\" when the Arena agent hits its tool-call limit for the turn.",
   "license": "MIT",
   "scripts": {
-    "test": "node --test test/notifications.test.js test/tap.test.js test/service-worker.test.js test/crx.test.js && node test/test.js",
+    "test": "node --test test/notifications.test.js test/tap.test.js test/service-worker.test.js test/crx.test.js test/site.test.js test/api.test.js test/updater.test.js && node test/test.js",
     "build": "bash scripts/build.sh",
     "shots": "node scripts/shots.js",
     "figure": "python3 scripts/compose-figure.py",
