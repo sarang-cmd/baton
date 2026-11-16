@@ -57,6 +57,11 @@
   .stamp { font-size: 0.78rem; color: var(--muted); }
   .empty { font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 0.6rem 0 0; }
   .range-label { font-size: 0.8rem; color: var(--muted); margin-left: auto; }
+  /* the heading is focused on unlock so screen readers start there; it was not
+     tabbed to, so it must not draw a focus ring across the page */
+  #statsTitle:focus { outline: none; }
+  #statsTitle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .sub-head { margin: 1.1rem 0 0.4rem; font-size: 0.76rem; color: var(--muted); }
   @media (prefers-reduced-motion: no-preference) {
     .mini, .bars .bar { transition: width 320ms ease-out, height 320ms ease-out; }
   }
@@ -152,7 +157,8 @@
             </thead>
             <tbody id="channelBody"></tbody>
           </table>
-          <ul class="dl-list" id="sourceList" style="margin-top: 1rem"></ul>
+          <p class="sub-head">Which button</p>
+          <ul class="dl-list" id="sourceList"></ul>
           <p class="empty" id="channelEmpty" hidden>Nothing recorded yet.</p>
         </div>
       </div>
