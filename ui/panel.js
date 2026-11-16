@@ -210,6 +210,29 @@
       color: #dcc39b;
     }
     .update a { color: #e8cf9f; }
+    .update .u-btn {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 3px 8px;
+      font: inherit;
+      font-size: 10.5px;
+      color: #14181a;
+      background: #dcc39b;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .update .u-btn:hover { background: #e8cf9f; }
+    .update .u-btn:disabled { opacity: 0.55; cursor: default; }
+    .update .u-btn:focus-visible { outline: 2px solid #e8cf9f; outline-offset: 2px; }
+    .update-status {
+      margin: 0 0 10px;
+      font-size: 10.5px;
+      line-height: 1.5;
+      color: #9fc6c9;
+    }
+    .update-status[data-tone="bad"] { color: #e0a1a1; }
+    .update-status[data-tone="good"] { color: #a8d6a8; }
   `;
 
   const svg = (paths, extra = '') =>
@@ -263,7 +286,10 @@
         <div class="update" id="baton-update" hidden>
           <span id="baton-update-text"></span>
           <a id="baton-update-link" href="#" target="_blank" rel="noopener">Download</a>
+          <button class="u-btn" type="button" id="baton-update-now" hidden>Update in place</button>
+          <button class="u-btn" type="button" id="baton-update-link-folder" hidden>Choose folder</button>
         </div>
+        <p class="update-status" id="baton-update-status" role="status" hidden></p>
 
         ${compact ? '' : `
         <div class="search">
@@ -714,10 +740,32 @@
       panel.querySelector('#baton-update-text').textContent =
         `Version ${info.version} is available. You have ${chrome.runtime.getManifest().version}.`;
       panel.querySelector('#baton-update-link').href = info.downloadUrl || info.htmlUrl || `https://github.com/${REPO}/releases`;
+
+      // In-place updating only works where both the picker and the updater are
+      // present, so the buttons stay hidden everywhere else.
+      const now = panel.querySelector('#baton-update-now');
+      const pick = panel.querySelector('#baton-update-link-folder');
+      const canApply = Boolean(window.BatonUpdater && window.showDirectoryPicker);
+      if (now) now.hidden = !(canApply && info.folder && info.folder.linked);
+      if (pick) pick.hidden = !(canApply && !(info.folder && info.folder.linked));
       box.hidden = false;
     };
 
-    return { element: panel, fill, showUpdate, compact };
+    const updateStatus = (text, tone = '') => {
+      const line = panel.querySelector('#baton-update-status');
+      if (!line) return;
+      line.textContent = text || '';
+      line.hidden = !text;
+      if (tone) line.setAttribute('data-tone', tone);
+      else line.removeAttribute('data-tone');
+    };
+
+    const updateButtons = () => ({
+      now: panel.querySelector('#baton-update-now'),
+      pick: panel.querySelector('#baton-update-link-folder'),
+    });
+
+    return { element: panel, fill, showUpdate, updateStatus, updateButtons, compact };
   }
 
   window.BatonPanel = { DEFAULTS, CSS, markup, mount, load, save };

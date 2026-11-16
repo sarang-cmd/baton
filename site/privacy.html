@@ -30,7 +30,7 @@
 <main class="doc">
   <div class="wrap prose">
     <h1>Privacy</h1>
-    <p class="doc-meta">Applies to the browser extension and this website. Last updated 7 November 2026.</p>
+    <p class="doc-meta">Applies to the browser extension and this website. Last updated 16 November 2026.</p>
 
     <p class="mt-24">
       This extension exists to send the word "continue". That job does not require collecting anything
@@ -60,7 +60,7 @@
 
     <h2>What never happens</h2>
     <ul>
-      <li>No data is sent to the developer or to any third party. The extension contains no network requests.</li>
+      <li>Nothing about your conversations, your account, or the pages you read is sent anywhere.</li>
       <li>No analytics, telemetry, crash reporting, advertising, or fingerprinting.</li>
       <li>No account, sign-in, licence key, or payment.</li>
       <li>No remote code. Everything that runs is in the files you installed.</li>
@@ -72,13 +72,58 @@
       <li><code class="inline-code">storage</code> keeps your settings and the send counter on your machine.</li>
       <li><code class="inline-code">activeTab</code> lets settings ask the current arena.ai tab for its status while the settings view is open.</li>
       <li>Host access to <code class="inline-code">arena.ai</code> is what allows the script to see the banner and fill the message box.</li>
+      <li>Host access to <code class="inline-code">baton-arena.vercel.app</code> is what lets the settings page ask whether a newer release exists, and lets it download that release into a folder you picked.</li>
     </ul>
+
+    <h2>What the extension sends now</h2>
+    <p>
+      Up to version 1.6 it sent nothing at all. From 1.7 there are exactly two requests, both to this
+      project's own site and never to arena.ai:
+    </p>
+    <ul>
+      <li>
+        When you open the settings page, at most once every twelve hours, it asks for the newest
+        version number. That answer is cached on your machine.
+      </li>
+      <li>
+        At most once a day it sends one line saying which version is installed, so the download
+        counter can tell how many installs exist. It carries the version number, the word
+        <code class="inline-code">extension</code>, and nothing else. No identifier is created,
+        stored, or reused, so this line cannot follow you between visits.
+      </li>
+    </ul>
+    <p>
+      Both requests are counted by the site the same way a download is, which brings us to the
+      next section. Neither request is made from arena.ai pages, and neither goes anywhere else.
+    </p>
 
     <h2>This website</h2>
     <p>
-      These pages are static files with no cookies, no analytics, and no third-party embeds. The only
-      network requests they make are for the pages' own files. Fonts are taken from your operating
-      system, so nothing calls out to a font service.
+      The pages are static files with no cookies, no analytics, no advertising and no third-party
+      embeds. Fonts are taken from your operating system, so nothing calls out to a font service.
+    </p>
+    <p>
+      One thing is counted. When someone takes a download, and once a day when an installed extension
+      checks in, the site writes a row to its own database. That row holds:
+    </p>
+    <ul>
+      <li>the version, the channel (site, GitHub, or update), and which button was pressed;</li>
+      <li>the <strong>IP address the request came from</strong>;</li>
+      <li>the two-letter country your browser's request was routed through, which the hosting edge already knows;</li>
+      <li>the browser family (Chrome, Edge, Firefox, and so on), not the full user agent string;</li>
+      <li>the time.</li>
+    </ul>
+    <p>
+      The address is stored in full, and it is stored so that the counter can say how many distinct
+      people downloaded rather than how many clicks happened. It is not joined to any account,
+      because there are no accounts. It is not shared, sold, or sent to anyone. It is not used to
+      track you across other sites, and the site sets no cookie that would make that possible.
+      Rows are kept indefinitely so the history stays readable; ask on the issue tracker and they
+      will be deleted.
+    </p>
+    <p>
+      Nothing is counted if you use a content blocker that stops the request, or if you download
+      straight from GitHub instead of this site. The extension's settings work the same either way.
     </p>
 
     <h2>Changes</h2>

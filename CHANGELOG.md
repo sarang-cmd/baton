@@ -1,6 +1,32 @@
 # Changelog
 
-## 1.6.0, 7 November 2026
+## 1.7.0, 16 November 2026
+
+- **Real download stats.** Downloads are now counted on the server instead of read from the public
+  releases API. `POST /api/downloads` writes a row to a Neon Postgres table, `GET /api/stats` returns
+  the dashboard only after comparing the password with `BATON_STATS_PASSWORD` in the environment, and
+  `site/stats.html` shows totals, distinct addresses, a day by day chart, and breakdowns by version,
+  channel, button, country and browser, plus the newest events.
+- **Unique per address.** Each row keeps the address the request came from, which is what makes a
+  distinct count possible. That is a privacy cost, so `site/privacy.html` now says it plainly, and the
+  ten second window keeps a double click from counting twice.
+- **Updates the way lm-subs does them.** `update/updater.js` lets Baton update an unpacked folder in
+  place: link the folder once, then it fetches `/api/version`, downloads the zip, verifies the
+  published SHA-256 and the CRC-32 of every entry, and writes the files. It refuses on any mismatch,
+  on a `..` segment, or when the version inside the zip is not the one announced.
+- `site/releases.json` is written by `scripts/make-crx.py` in the same step that packs the crx, so the
+  version, the size and the checksum always belong to the bytes that were just built. `site/baton.zip`
+  is now that exact payload, so the zip a visitor downloads is the archive inside the signed package.
+- The extension gained one host permission, its own site, for the update check and the download. It
+  still makes no request to arena.ai, and a test enforces that.
+- Fixes the date on the 1.6.0 and 1.5.1 entries, which both said 7 November.
+- Tests: eleven for the updater (semver, crc32, unpacking the real release zip, a traversal attempt, a
+  corrupted entry, the checksum gate, and that it only ever talks to this site), twelve for the
+  endpoints (address handling, the dedupe window, unknown values, the password gate, the range clamp),
+  and the stats gate rewritten to drive the server instead of a hash. 85 in the node suites, plus 39
+  page tests.
+
+## 1.6.0, 16 November 2026
 
 - **Download stats.** `site/stats.html` lists downloads per release from the public releases API,
   behind a password. The password is held as a SHA-256, never in plain text, the page is noindex, and
@@ -17,7 +43,7 @@
   signature over exactly the bytes Chrome signs, and that the payload matches the release build; six
   for the stats gate and the update wiring. 55 in the node suites, plus the 39 page tests.
 
-## 1.5.1, 7 November 2026
+## 1.5.1, 16 November 2026
 
 - Fixes the console error `A listener indicated an asynchronous response by returning true, but the
   message channel closed before a response was received`. The `baton-event` handler promised a reply
@@ -34,7 +60,7 @@
   stayed.
 - 51 node tests and 39 page tests.
 
-## 1.5.0, 7 November 2026
+## 1.5.0, 16 November 2026
 
 - **Baton no longer makes any request to Arena.** This is the important line. 1.4 polled `/api/chat`
   every second or two from every open tab, and `/api/evaluation` every 2.5 seconds for up to ten

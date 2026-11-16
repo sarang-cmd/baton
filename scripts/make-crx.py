@@ -4,7 +4,9 @@
     python3 scripts/make-crx.py --key ~/.keys/baton-extension.pem \
         --base https://baton-arena.vercel.app
 
-Writes site/baton.crx and site/updates.xml, and prints the extension id.
+Writes site/baton.crx, site/updates.xml and site/releases.json, and prints the
+extension id. releases.json is what /api/version serves to the extension, so the
+version, the size and the checksum in it always belong to the bytes just written.
 
 Why this exists: Chrome will not update an extension that was loaded unpacked.
 A signed CRX plus an update manifest is the only self-hosted way to get silent
@@ -147,6 +149,14 @@ def main():
     with open(crx_path, 'wb') as fh:
         fh.write(crx)
 
+    # The zip the site serves and the payload inside the crx are the same bytes.
+    # That way the checksum /api/version publishes describes exactly what a
+    # download delivers, and the in-place updater can verify one against the
+    # other instead of trusting two separate builds to agree.
+    zip_path = os.path.join(args.site, 'baton.zip')
+    with open(zip_path, 'wb') as fh:
+        fh.write(payload)
+
     base = args.base.rstrip('/')
     updates = (
         "<?xml version='1.0' encoding='UTF-8'?>\n"
@@ -159,12 +169,52 @@ def main():
     with open(os.path.join(args.site, 'updates.xml'), 'w') as fh:
         fh.write(updates)
 
+    # The extension reads this through /api/version. Its checksum is what the
+    # in-place updater verifies before it writes a single byte.
+    release_notes = ''
+    changelog = os.path.join(ROOT, 'CHANGELOG.md')
+    if os.path.exists(changelog):
+        with open(changelog, encoding='utf-8') as fh:
+            text = fh.read()
+        marker = '## %s' % version
+        if marker in text:
+            block = text.split(marker, 1)[1]
+            block = block.split('\n## ', 1)[0]
+            release_notes = '\n'.join(
+                line.strip() for line in block.strip().splitlines()
+                if line.strip() and not line.strip().startswith('#')
+            )[:600]
+
+    releases = {
+        'version': version,
+        'notes': release_notes,
+        'publishedAt': os.environ.get('BATON_RELEASE_DATE', ''),
+        'zip': {
+            'version': version,
+            'url': '%s/baton.zip' % base,
+            'size': len(payload),
+            'sha256': hashlib.sha256(payload).hexdigest(),
+        },
+        'crx': {
+            'version': version,
+            'url': '%s/baton.crx' % base,
+            'size': len(crx),
+            'sha256': hashlib.sha256(crx).hexdigest(),
+        },
+        'minimum': {'chrome': '116'},
+    }
+    with open(os.path.join(args.site, 'releases.json'), 'w') as fh:
+        json.dump(releases, fh, indent=2)
+        fh.write('\n')
+
     print('extension id %s' % ext_id)
     print('version      %s' % version)
     print('crx          %s (%d bytes)' % (crx_path, len(crx)))
-    print('payload zip  %d bytes' % len(payload))
+    print('zip          %s (%d bytes)' % (zip_path, len(payload)))
     print('crx sha256   %s' % hashlib.sha256(crx).hexdigest())
     print('update url   %s/updates.xml' % base)
+    print('zip sha256   %s' % releases['zip']['sha256'])
+    print('releases     %s' % os.path.join(args.site, 'releases.json'))
 
 
 if __name__ == '__main__':
