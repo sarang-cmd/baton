@@ -16,7 +16,9 @@ cp ui/settings.js ui/panel.js "$DIST/$NAME/ui/"
 cp update/updater.js "$DIST/$NAME/update/"
 cp notifications/events.js notifications/tap.js notifications/observe.js \
    notifications/dedupe.js notifications/notifier.js notifications/worker.js "$DIST/$NAME/notifications/"
-[ -f README.md ] && cp README.md "$DIST/$NAME/"
+# README and CHANGELOG stay out of the package. Chrome never reads them, and
+# including them meant every documentation edit changed the release bytes, the
+# published checksum and the crx signature for no functional reason.
 cp -r icons "$DIST/$NAME/"
 
 cd "$DIST"

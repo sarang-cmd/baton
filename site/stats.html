@@ -61,7 +61,8 @@
      tabbed to, so it must not draw a focus ring across the page */
   #statsTitle:focus { outline: none; }
   #statsTitle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .sub-head { margin: 1.1rem 0 0.4rem; font-size: 0.76rem; color: var(--muted); }
+  .sub-head { margin: 0; padding: 1rem 0 0.35rem; font-size: 0.76rem; color: var(--muted);
+    border-top: 1px solid rgba(0,0,0,0.06); }
   @media (prefers-reduced-motion: no-preference) {
     .mini, .bars .bar { transition: width 320ms ease-out, height 320ms ease-out; }
   }

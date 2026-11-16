@@ -1,18 +1,18 @@
 {
   "version": "1.7.0",
   "notes": "Real download stats. Downloads are now counted on the server instead of read from the public\nreleases API. POST /api/downloads writes a row to a Neon Postgres table, GET /api/stats returns\nthe dashboard only after comparing the password with BATON_STATS_PASSWORD in the environment, and\nsite/stats.html shows totals, distinct addresses, a day by day chart, and breakdowns by version,\nchannel, button, country and browser, plus the newest events.\nUnique per address. Each row keeps the address the request came from, which is what makes a\ndistinct count possible. That is a privacy cost, so site/privacy.html now says it plainly, and the\nten second window keeps a double click from counting twice.\nUpdates the way lm-subs does them. update/updater.js lets Baton update an unpacked folder in\nplace: link the folder once, then it fetches /api/version, downloads the zip, verifies the\npublished SHA-256 a",
-  "publishedAt": "2026-11-16T18:06:21Z",
+  "publishedAt": "2026-11-16T18:16:23Z",
   "zip": {
     "version": "1.7.0",
     "url": "https://baton-arena.vercel.app/baton.zip",
-    "size": 79748,
-    "sha256": "832336deaca243c099456a00b495cbd4aebd61d45134327ef9bf947789d8d4e5"
+    "size": 71118,
+    "sha256": "33a174d0d377e6ff2c58c4cf24e4574dde3228be5b534001af9c15f35134a4e9"
   },
   "crx": {
     "version": "1.7.0",
     "url": "https://baton-arena.vercel.app/baton.crx",
-    "size": 80341,
-    "sha256": "b8970b28d03425f0fe8b36944f37218603b35af5bb6aabf10272cc74db443022"
+    "size": 71711,
+    "sha256": "4103526ce3029775fe1f7e24a27cda2c937eeef19402dec27f603dc77aca28ae"
   },
   "minimum": {
     "chrome": "116"
