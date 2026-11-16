@@ -13,7 +13,8 @@ mkdir -p "$DIST/$NAME"
 cp manifest.json content.js background.js settings.html settings.js LICENSE "$DIST/$NAME/"
 mkdir -p "$DIST/$NAME/ui" "$DIST/$NAME/notifications"
 cp ui/settings.js ui/panel.js "$DIST/$NAME/ui/"
-cp notifications/events.js notifications/observe.js notifications/dedupe.js notifications/notifier.js notifications/worker.js "$DIST/$NAME/notifications/"
+cp notifications/events.js notifications/tap.js notifications/observe.js \
+   notifications/dedupe.js notifications/notifier.js notifications/worker.js "$DIST/$NAME/notifications/"
 [ -f README.md ] && cp README.md "$DIST/$NAME/"
 cp -r icons "$DIST/$NAME/"
 

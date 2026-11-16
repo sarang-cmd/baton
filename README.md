@@ -90,9 +90,15 @@ notification focuses the tab that holds that thread, and switches to it if it is
 The three toggles are independent. **Send a test notification** on the options page checks that the
 operating system is letting them through.
 
+**Baton makes no requests to Arena.** It reads the responses your browser has already fetched, from
+the page's own JavaScript context, and drops the text before anything is summarised. The page talks to
+Arena; Baton listens. An earlier version polled, which looked like a bot and could get an account rate
+limited for hours, and that is why this is now a rule rather than a preference: a test fails the build
+if a request reappears in the notification code.
+
 **Diagnostics** on the same page shows what Baton actually saw on your last run: the chat id it found,
-the endpoint that answered, the last assistant message's part types and states, and the reason it did
-or did not call the response finished. It contains key names, types and lengths, never your text.
+the last assistant message's part types and states, its pending flag, and the reason it did or did not
+call the response finished. It contains key names, types and lengths, never your text.
 **Send a test completion event** pushes a synthetic event through the same path, so a silent run can
 be narrowed down to either detection or delivery in one click.
 
@@ -217,7 +223,8 @@ The screenshots in this README are regenerated with `node scripts/shots.js`, whi
 manifest.json        Manifest V3, matches arena.ai, notifications + webRequest
 content.js           detection, composer insertion, guards, on-page pill
 notifications/events.js    the event rules, pure functions, no DOM or chrome
-notifications/observe.js   polls /api/chat, turns responses into events
+notifications/tap.js       reads the page's own fetch responses, adds no requests
+notifications/observe.js   turns those summaries into events
 notifications/dedupe.js    once-per-turn keys, in chrome.storage.session
 notifications/notifier.js  wording and title truncation
 notifications/worker.js    intake, dedupe, click to focus, webRequest intake

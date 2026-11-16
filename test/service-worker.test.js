@@ -119,3 +119,24 @@ test('a broken notification module cannot take the toolbar button down with it',
   listeners.clicked[0]();
   assert.equal(calls.created.length, 1);
 });
+
+test('nothing in the notification stack can poll Arena', () => {
+  // a source level guard: the fix for a rate limited account must not quietly
+  // come back as a timer or a fetch
+  const files = ['notifications/worker.js', 'notifications/observe.js'];
+  for (const f of files) {
+    const code = fs.readFileSync(path.join(root, f), 'utf8')
+      .split('\n')
+      .filter((line) => !/^\s*(\*|\/\/)/.test(line))   // ignore comments
+      .join('\n');
+    assert.ok(!/fetch\s*\(/.test(code), f + ' issues a fetch');
+    assert.ok(!/setInterval\s*\(/.test(code), f + ' sets an interval');
+    assert.ok(!/XMLHttpRequest/.test(code), f + ' opens an XHR');
+    const timers = (code.match(/setTimeout\s*\(/g) || []).length;
+    assert.ok(timers <= 1, f + ' has ' + timers + ' timers; only a DOM tick is allowed');
+  }
+  // the page side tap is allowed to wrap fetch, but must not call it
+  const tap = fs.readFileSync(path.join(root, 'notifications/tap.js'), 'utf8')
+    .split('\n').filter((l) => !/^\s*(\*|\/\/)/.test(l)).join('\n');
+  assert.ok(!/fetch\s*\(\s*['"`]/.test(tap), 'the tap must not call fetch itself');
+});

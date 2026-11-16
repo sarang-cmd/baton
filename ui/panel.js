@@ -308,7 +308,8 @@
           </div>
           <p class="note" id="baton-diag-note">
             This is what Baton sees, not what it thinks. It holds key names, part types and lengths,
-            never your text. If a run finishes and this still says nothing, the button above proves
+            never your text. Baton makes no requests of its own: it reads the responses the page
+            already fetched. If a run finishes and this still says nothing, the button below proves
             which half is broken.
           </p>
           <details id="baton-diag-raw" hidden>
@@ -533,11 +534,9 @@
       } else {
         lines.push('Chat ' + d.route.chatId + ', mode ' + d.route.mode + ', found in the ' + d.route.from);
       }
-      if (d.poll) {
-        lines.push('Poll ' + d.poll.endpoint + ' answered ' + (d.poll.status || 'no response') +
-          (d.poll.error ? ' (' + d.poll.error + ')' : ''));
-      } else {
-        lines.push('Nothing has been polled yet.');
+      if (d.route && d.route.from) {
+        lines.push('Baton made no request: it read ' + (d.route.from === 'traffic' ? 'the page traffic' : 'the page') +
+          ' and nothing else.');
       }
       if (typeof d.messages === 'number') lines.push(d.messages + ' messages in the state');
       if (d.shape && d.shape.assistant) {
