@@ -45,8 +45,8 @@ module.exports = async function handler(req, res) {
                   count(*) filter (where occurred_at >= now() - interval '30 days')::int as last30,
                   count(*) filter (where kind = 'update')::int as update_checks,
                   count(distinct ip) filter (where kind = 'update')::int as unique_update_ips,
-                  min(occurred_at) as first_at,
-                  max(occurred_at) as last_at
+                  to_char(min(occurred_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as first_at,
+                  to_char(max(occurred_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as last_at
            from baton_events`
         ),
         sql(

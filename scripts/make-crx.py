@@ -180,10 +180,16 @@ def main():
         if marker in text:
             block = text.split(marker, 1)[1]
             block = block.split('\n## ', 1)[0]
-            release_notes = '\n'.join(
-                line.strip() for line in block.strip().splitlines()
-                if line.strip() and not line.strip().startswith('#')
-            )[:600]
+            lines = [line.strip() for line in block.strip().splitlines() if line.strip()]
+            # the rest of the heading line is ", 16 November 2026"
+            if lines and lines[0].startswith(','):
+                lines = lines[1:]
+            cleaned = []
+            for line in lines:
+                line = line.lstrip('- ').replace('**', '').replace('`', '').strip()
+                if line:
+                    cleaned.append(line)
+            release_notes = '\n'.join(cleaned)[:900]
 
     releases = {
         'version': version,
