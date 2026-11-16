@@ -367,6 +367,12 @@ an interactive simulation of the console that uses the same banner wording the e
   `webRequest`. Both are declared at install; `CHANGES.md` says why.
 - If your agent has a per-turn limit counted server-side, sending `continue` costs you a new turn and
   counts against that. Reading Arena's own usage terms is on you.
+- **The in place update has not been run on a real browser here.** The checksums, the unpacking and
+  every refusal are covered by tests, but linking a folder and writing into it need the File System
+  Access API, which exists only in Chrome. Rows U1 to U5 in `TEST_MATRIX.md` are the ones to run.
+- **The counter stores the address a download came from.** That is what makes a distinct count mean
+  distinct people, and it is a privacy cost that `site/privacy.html` states plainly. Hash it before
+  the insert if you would rather not keep it; the queries count distinct values either way.
 
 ## Licence
 
