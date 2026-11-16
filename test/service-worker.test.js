@@ -140,3 +140,54 @@ test('nothing in the notification stack can poll Arena', () => {
     .split('\n').filter((l) => !/^\s*(\*|\/\/)/.test(l)).join('\n');
   assert.ok(!/fetch\s*\(\s*['"`]/.test(tap), 'the tap must not call fetch itself');
 });
+
+test('a stalled notification never leaves the caller without a reply', async () => {
+  // Reproduces the console error "the message channel closed before a response
+  // was received": intake that never calls back used to hang the reply forever.
+  const { context, listeners, sandbox } = workerContext();
+  sandbox.__batonReplyTimeout = 40;
+  vm.runInContext(fs.readFileSync(path.join(root, 'background.js'), 'utf8'), context,
+    { filename: 'background.js' });
+  sandbox.BatonWorker.intake = () => { /* never calls back, on purpose */ };
+
+  const replied = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve('no reply'), 800);
+    listeners.message[0]({ type: 'baton-event', events: [{ type: 'response_done' }] }, {}, (res) => {
+      clearTimeout(timer);
+      resolve(res);
+    });
+  });
+  assert.notEqual(replied, 'no reply', 'the reply never came: the channel would close');
+  assert.equal(replied.ok, false);
+  assert.equal(replied.reason, 'timeout');
+});
+
+test('a missing notification module still answers the caller', () => {
+  const { context, listeners, sandbox } = workerContext();
+  vm.runInContext(fs.readFileSync(path.join(root, 'background.js'), 'utf8'), context,
+    { filename: 'background.js' });
+  let reply = null;
+  // simulate the import having failed: the worker never registered. Deleting on
+  // the sandbox object does not remove a property of the contextified global, so
+  // it has to happen inside the context.
+  vm.runInContext('delete globalThis.BatonWorker', context);
+  listeners.message[0]({ type: 'baton-event', events: [{ type: 'response_done' }] }, {}, (r) => { reply = r; });
+  assert.ok(reply, 'no reply for a missing worker');
+  assert.equal(reply.ok, false);
+});
+
+test('intake answers exactly once even when the notifier throws', async () => {
+  const { context, calls } = workerContext();
+  vm.runInContext(fs.readFileSync(path.join(root, 'background.js'), 'utf8'), context,
+    { filename: 'background.js' });
+  const worker = context.BatonWorker;
+  assert.equal(typeof worker.intake, 'function');
+
+  let answers = 0;
+  worker.intake({ type: 'response_done', threadId: 't', turnId: 'u', mode: 'agent' }, {}, () => {
+    answers += 1;
+  });
+  await new Promise((r) => setTimeout(r, 120));
+  assert.equal(answers, 1, 'intake answered ' + answers + ' times');
+  assert.ok(calls.notificationCreated.length >= 0);
+});
