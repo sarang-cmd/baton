@@ -5,3 +5,7 @@ dist/
 # the landing page's direct download serves this one
 !site/baton.zip
 npm-debug.log*
+
+# signing key and generated package
+*.pem
+*.crx.tmp
